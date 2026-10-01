@@ -2,7 +2,7 @@ import ApplicationLogo from '@/Components/ApplicationLogo';
 import InputError from '@/Components/InputError';
 import ThemeToggle from '@/Components/ThemeToggle';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 function formatStatus(value) {
     return value.replace(/_/g, ' ');
@@ -87,6 +87,10 @@ export default function Show({ jobRequest, permissions, paymentMethodOptions }) 
     const { auth } = usePage().props;
     const isCustomer = auth.user.role === 'customer';
     const isAdmin = auth.user.role === 'admin';
+    const messageListRef = useRef(null);
+    const messageEndRef = useRef(null);
+    const previousMessageCountRef = useRef(jobRequest.messages.length);
+    const shouldStickToBottomRef = useRef(true);
     const [statusAction, setStatusAction] = useState(null);
     const [quoteAction, setQuoteAction] = useState(null);
     const [scheduleAction, setScheduleAction] = useState(null);
@@ -269,6 +273,102 @@ export default function Show({ jobRequest, permissions, paymentMethodOptions }) 
     const showCustomerTools = Boolean(
         isCustomer && permissions.canCreateFollowUp,
     );
+
+    useEffect(() => {
+        messageEndRef.current?.scrollIntoView({ block: 'end' });
+    }, []);
+
+    useEffect(() => {
+        const listElement = messageListRef.current;
+
+        if (!listElement) {
+            return undefined;
+        }
+
+        const updateStickiness = () => {
+            const distanceFromBottom =
+                listElement.scrollHeight -
+                listElement.scrollTop -
+                listElement.clientHeight;
+
+            shouldStickToBottomRef.current = distanceFromBottom < 120;
+        };
+
+        updateStickiness();
+        listElement.addEventListener('scroll', updateStickiness);
+
+        return () => {
+            listElement.removeEventListener('scroll', updateStickiness);
+        };
+    }, [jobRequest.messages.length]);
+
+    useEffect(() => {
+        const latestMessage = jobRequest.messages.at(-1);
+        const previousCount = previousMessageCountRef.current;
+        const messageCount = jobRequest.messages.length;
+        const shouldAutoScroll =
+            shouldStickToBottomRef.current ||
+            latestMessage?.sender.id === auth.user.id;
+
+        if (messageCount > previousCount && shouldAutoScroll) {
+            messageEndRef.current?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'end',
+            });
+        }
+
+        previousMessageCountRef.current = messageCount;
+    }, [auth.user.id, jobRequest.messages]);
+
+    useEffect(() => {
+        let intervalId;
+
+        const reloadThread = () => {
+            if (document.visibilityState !== 'visible') {
+                return;
+            }
+
+            if (
+                processing ||
+                quoteProcessing ||
+                scheduleProcessing ||
+                paymentProcessing ||
+                reviewProcessing
+            ) {
+                return;
+            }
+
+            router.reload({
+                only: ['jobRequest', 'permissions'],
+                preserveState: true,
+                preserveScroll: true,
+            });
+        };
+
+        intervalId = window.setInterval(reloadThread, 4000);
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                reloadThread();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            window.clearInterval(intervalId);
+            document.removeEventListener(
+                'visibilitychange',
+                handleVisibilityChange,
+            );
+        };
+    }, [
+        paymentProcessing,
+        processing,
+        quoteProcessing,
+        reviewProcessing,
+        scheduleProcessing,
+    ]);
 
     return (
         <>
@@ -1228,7 +1328,10 @@ export default function Show({ jobRequest, permissions, paymentMethodOptions }) 
                                 </div>
 
                                 {jobRequest.messages.length ? (
-                                    <div className="mt-6 space-y-4">
+                                    <div
+                                        ref={messageListRef}
+                                        className="mt-6 max-h-[34rem] space-y-4 overflow-y-auto pr-2"
+                                    >
                                         {jobRequest.messages.map((message) => {
                                             const isOwnMessage =
                                                 auth.user.id === message.sender.id;
@@ -1268,6 +1371,7 @@ export default function Show({ jobRequest, permissions, paymentMethodOptions }) 
                                                 </div>
                                             );
                                         })}
+                                        <div ref={messageEndRef} />
                                     </div>
                                 ) : (
                                     <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/85 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
