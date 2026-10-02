@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\JobRequest;
 use App\Models\User;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->withoutVite();
@@ -125,4 +127,118 @@ test('provider directory search can match provider service titles', function () 
     $response->assertOk();
     $response->assertSee('Circuit Care Studio');
     $response->assertDontSee('Harare Cleaning Base');
+});
+
+test('provider directory exposes located providers to the map', function () {
+    $provider = createDirectoryProvider([
+        'name' => 'Mapped Provider',
+        'latitude' => -17.8024,
+        'longitude' => 31.0371,
+    ], [
+        'business_name' => 'Mapped Wiring Co',
+    ]);
+
+    $this->get(route('providers.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('mapProviders', 1)
+            ->where('mapProviders.0.id', $provider->id)
+            ->where('mapProviders.0.businessName', 'Mapped Wiring Co')
+            ->where('mapProviders.0.latitude', -17.802)
+            ->where('mapProviders.0.longitude', 31.037));
+});
+
+test('provider directory filters and sorts providers by geographic distance', function () {
+    createDirectoryProvider([
+        'name' => 'Nearby Provider',
+        'latitude' => -17.8024,
+        'longitude' => 31.0371,
+    ], [
+        'business_name' => 'Nearby Wiring Co',
+    ]);
+
+    createDirectoryProvider([
+        'name' => 'Distant Provider',
+        'city' => 'Bulawayo',
+        'area' => 'Hillside',
+        'latitude' => -20.1874,
+        'longitude' => 28.6046,
+    ], [
+        'business_name' => 'Distant Wiring Co',
+    ]);
+
+    $response = $this->get(route('providers.index', [
+        'latitude' => -17.8024,
+        'longitude' => 31.0371,
+        'radius' => 25,
+        'sort' => 'distance',
+    ]));
+
+    $response->assertOk();
+    $response->assertSee('Nearby Wiring Co');
+    $response->assertDontSee('Distant Wiring Co');
+    $response->assertInertia(fn (Assert $page) => $page
+        ->where('filters.radius', 25)
+        ->where('filters.sort', 'distance')
+        ->where('providers.total', 1)
+        ->where('providers.data.0.distanceKm', 0));
+});
+
+test('provider directory can sort located providers by rating', function () {
+    $customer = User::factory()->create([
+        'city' => 'Harare',
+        'area' => 'Avondale',
+    ]);
+
+    $lowerRatedProvider = createDirectoryProvider([
+        'name' => 'Lower Rated Provider',
+        'latitude' => -17.8030,
+        'longitude' => 31.0371,
+    ], [
+        'business_name' => 'Lower Rated Wiring Co',
+    ]);
+
+    $higherRatedProvider = createDirectoryProvider([
+        'name' => 'Higher Rated Provider',
+        'latitude' => -17.8024,
+        'longitude' => 31.0371,
+    ], [
+        'business_name' => 'Higher Rated Wiring Co',
+    ]);
+
+    foreach ([[$lowerRatedProvider, 3], [$higherRatedProvider, 5]] as [$provider, $rating]) {
+        $jobRequest = JobRequest::create([
+            'customer_id' => $customer->id,
+            'provider_id' => $provider->id,
+            'trade_category' => 'Electrical',
+            'title' => "Closed rating request {$provider->id}",
+            'description' => 'Closed request used to seed public provider ratings.',
+            'urgency' => 'this_week',
+            'city' => 'Harare',
+            'area' => 'Avondale',
+            'status' => 'closed',
+        ]);
+
+        $provider->receivedProviderReviews()->create([
+            'job_request_id' => $jobRequest->id,
+            'customer_id' => $customer->id,
+            'rating' => $rating,
+            'headline' => 'Verified feedback',
+            'body' => 'A public review used by provider directory sorting.',
+            'moderation_status' => 'published',
+        ]);
+    }
+
+    $this->get(route('providers.index', [
+        'latitude' => -17.8024,
+        'longitude' => 31.0371,
+        'radius' => 25,
+        'sort' => 'rating',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('filters.sort', 'rating')
+            ->where('providers.total', 2)
+            ->where('providers.data.0.businessName', 'Higher Rated Wiring Co')
+            ->where('providers.data.0.averageRating', 5));
 });

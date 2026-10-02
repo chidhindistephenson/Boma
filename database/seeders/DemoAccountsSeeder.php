@@ -21,6 +21,8 @@ class DemoAccountsSeeder extends Seeder
                 'status' => 'active',
                 'city' => 'Harare',
                 'area' => 'Avondale',
+                'latitude' => -17.8024,
+                'longitude' => 31.0371,
                 'email_verified_at' => now(),
                 'password' => $password,
             ],
@@ -47,12 +49,14 @@ class DemoAccountsSeeder extends Seeder
                 'status' => 'active',
                 'city' => 'Harare',
                 'area' => 'Borrowdale',
+                'latitude' => -17.7547,
+                'longitude' => 31.0892,
                 'email_verified_at' => now(),
                 'password' => $password,
             ],
         );
 
-        $provider->providerProfile()->updateOrCreate(
+        $providerProfile = $provider->providerProfile()->updateOrCreate(
             ['user_id' => $provider->id],
             [
                 'business_name' => 'Boma Electrical Works',
@@ -68,6 +72,16 @@ class DemoAccountsSeeder extends Seeder
                 'availability_status' => 'available',
                 'subscription_tier' => 'standard',
                 'trial_ends_at' => now()->addDays(config('localserve.provider.trial_days')),
+            ],
+        );
+
+        $providerProfile->tradeCategories()->updateOrCreate(
+            ['trade_category' => 'Electrical'],
+            [
+                'verification_status' => 'verified',
+                'submitted_at' => now(),
+                'verified_at' => now(),
+                'reviewed_at' => now(),
             ],
         );
 

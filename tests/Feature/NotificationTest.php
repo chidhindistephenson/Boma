@@ -1,8 +1,12 @@
 <?php
 
+use App\Events\InAppNotificationCreated;
 use App\Models\InAppNotification;
 use App\Models\JobRequest;
 use App\Models\User;
+use App\Notifications\BomaActivityNotification;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Notification;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
@@ -63,6 +67,7 @@ test('targeted request creation notifies the provider and visiting marks it read
             'title' => 'Need a circuit inspection',
             'description' => 'A kitchen circuit keeps tripping and needs inspection.',
             'urgency' => 'urgent',
+            'preferred_date' => now()->addDays(2)->toDateString(),
             'budget_min' => 60,
             'budget_max' => 120,
             'city' => 'Harare',
@@ -165,6 +170,17 @@ test('provider review publication notifies the provider', function () {
         'status' => 'closed',
     ]);
 
+    $jobRequest->payment()->create([
+        'customer_id' => $customer->id,
+        'provider_id' => $provider->id,
+        'amount' => 200,
+        'method' => 'mobile_money',
+        'reference' => 'CONFIRMED-NOTIFICATION-PAYMENT',
+        'status' => 'confirmed',
+        'paid_at' => now()->subDay(),
+        'confirmed_at' => now(),
+    ]);
+
     $this->actingAs($customer)
         ->put(route('requests.review.upsert', $jobRequest), [
             'rating' => 5,
@@ -257,4 +273,64 @@ test('users cannot open another users notification', function () {
     $this->actingAs($otherUser)
         ->get(route('notifications.visit', $notification))
         ->assertForbidden();
+});
+
+test('users can manage category email preferences without disabling in app alerts', function () {
+    Notification::fake();
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->patch(route('notifications.preferences.update'), [
+            'messages' => true,
+            'requests' => false,
+            'payments' => true,
+            'reviews' => true,
+            'account' => true,
+        ])
+        ->assertRedirect();
+
+    $this->assertDatabaseHas('notification_preferences', [
+        'user_id' => $user->id,
+        'email_messages' => true,
+        'email_requests' => false,
+    ]);
+
+    InAppNotification::notifyUser(
+        $user,
+        'request_targeted',
+        'Request email disabled',
+        'This remains visible inside Boma.',
+        route('dashboard'),
+    );
+
+    $this->assertDatabaseHas('in_app_notifications', [
+        'user_id' => $user->id,
+        'title' => 'Request email disabled',
+    ]);
+    Notification::assertNotSentTo($user, BomaActivityNotification::class);
+});
+
+test('new notification events and queued emails target the intended user', function () {
+    Event::fake([InAppNotificationCreated::class]);
+    Notification::fake();
+    $user = User::factory()->create();
+
+    $activity = InAppNotification::notifyUser(
+        $user,
+        'request_payment_recorded',
+        'Payment recorded',
+        'A payment update is ready to review.',
+        route('dashboard'),
+        'Open dashboard',
+    );
+
+    Event::assertDispatched(
+        InAppNotificationCreated::class,
+        fn (InAppNotificationCreated $event): bool => $event->notification->is($activity),
+    );
+    Notification::assertSentTo($user, BomaActivityNotification::class);
+
+    $event = new InAppNotificationCreated($activity);
+    expect($event->broadcastOn()[0]->name)->toBe('private-user.'.$user->id)
+        ->and($event->broadcastWith()['notification']['category'])->toBe('payments');
 });

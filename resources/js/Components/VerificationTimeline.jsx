@@ -20,7 +20,7 @@ export default function VerificationTimeline({
 }) {
     return (
         <section
-            className={`rounded-[2rem] border border-zinc-200/80 bg-white/88 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)] ${
+            className={`rounded-[2rem] border border-zinc-200/80 bg-white/90 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)] ${
                 compact ? 'p-5' : 'p-8'
             }`}
         >
@@ -51,7 +51,7 @@ export default function VerificationTimeline({
                     {entries.map((entry) => (
                         <div
                             key={entry.id}
-                            className="rounded-[1.4rem] border border-zinc-200 bg-zinc-50/85 p-5 dark:border-white/10 dark:bg-white/[0.03]"
+                            className="rounded-[1.4rem] border border-zinc-200 bg-zinc-50/90 p-5 dark:border-white/10 dark:bg-white/[0.03]"
                         >
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                 <div className="max-w-3xl">
@@ -82,7 +82,7 @@ export default function VerificationTimeline({
                     ))}
                 </div>
             ) : (
-                <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/85 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
+                <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/90 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
                     {emptyMessage}
                 </div>
             )}

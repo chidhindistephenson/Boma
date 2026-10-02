@@ -5,9 +5,11 @@ use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\NewPasswordController;
+use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\Auth\TwoFactorController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
@@ -21,6 +23,12 @@ Route::middleware('guest')->group(function () {
         ->name('login');
 
     Route::post('login', [AuthenticatedSessionController::class, 'store']);
+
+    Route::get('oauth/{provider}/redirect', [OAuthController::class, 'redirect'])
+        ->name('oauth.redirect');
+
+    Route::get('oauth/{provider}/callback', [OAuthController::class, 'callback'])
+        ->name('oauth.callback');
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');
@@ -53,6 +61,17 @@ Route::middleware('auth')->group(function () {
     Route::post('confirm-password', [ConfirmablePasswordController::class, 'store']);
 
     Route::put('password', [PasswordController::class, 'update'])->name('password.update');
+
+    Route::get('two-factor/setup', [TwoFactorController::class, 'setup'])
+        ->name('two-factor.setup');
+    Route::post('two-factor/enable', [TwoFactorController::class, 'enable'])
+        ->name('two-factor.enable');
+    Route::get('two-factor/challenge', [TwoFactorController::class, 'challenge'])
+        ->name('two-factor.challenge');
+    Route::post('two-factor/challenge', [TwoFactorController::class, 'verify'])
+        ->name('two-factor.verify');
+    Route::delete('two-factor', [TwoFactorController::class, 'disable'])
+        ->name('two-factor.disable');
 
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('logout');

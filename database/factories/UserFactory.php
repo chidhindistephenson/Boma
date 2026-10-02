@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
@@ -21,23 +22,41 @@ class UserFactory extends Factory
     {
         return $this->afterCreating(function (User $user): void {
             if ($user->isProvider()) {
-                $user->providerProfile()->create([
+                $profile = $user->providerProfile()->create([
                     'business_name' => fake()->company(),
                     'trade_category' => fake()->randomElement(config('localserve.trade_categories')),
                     'bio' => fake()->paragraph(),
                     'verification_submitted_at' => $user->status === 'pending_verification'
                         ? now()
                         : null,
+                    'subscription_tier' => 'standard',
                     'trial_ends_at' => now()->addDays(config('localserve.provider.trial_days')),
+                ]);
+
+                $profile->tradeCategories()->create([
+                    'trade_category' => $profile->trade_category,
+                    'verification_status' => $profile->verification_status ?: 'pending',
+                    'submitted_at' => $profile->verification_submitted_at,
+                    'verified_at' => $profile->verified_at,
                 ]);
 
                 return;
             }
 
-            $user->customerProfile()->create([
-                'preferred_radius_km' => config('localserve.search.default_radius_km'),
-                'default_urgency' => array_key_first(config('localserve.request.urgency_options')),
-            ]);
+            if ($user->isAdmin()) {
+                $user->forceFill([
+                    'two_factor_secret' => Crypt::encryptString('JBSWY3DPEHPK3PXP'),
+                    'two_factor_recovery_codes' => ['TEST1-ADMIN'],
+                    'two_factor_confirmed_at' => now(),
+                ])->save();
+            }
+
+            if ($user->isCustomer()) {
+                $user->customerProfile()->create([
+                    'preferred_radius_km' => config('localserve.search.default_radius_km'),
+                    'default_urgency' => array_key_first(config('localserve.request.urgency_options')),
+                ]);
+            }
         });
     }
 

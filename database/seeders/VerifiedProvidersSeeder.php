@@ -186,6 +186,10 @@ class VerifiedProvidersSeeder extends Seeder
 
         foreach ($providers as $providerData) {
             $storefront = $this->storefrontForTrade($providerData['trade_category']);
+            [$latitude, $longitude] = $this->coordinatesFor(
+                $providerData['city'],
+                $providerData['area'],
+            );
 
             $provider = User::updateOrCreate(
                 ['email' => $providerData['email']],
@@ -196,12 +200,14 @@ class VerifiedProvidersSeeder extends Seeder
                     'status' => 'active',
                     'city' => $providerData['city'],
                     'area' => $providerData['area'],
+                    'latitude' => $latitude,
+                    'longitude' => $longitude,
                     'email_verified_at' => now(),
                     'password' => $password,
                 ],
             );
 
-            $provider->providerProfile()->updateOrCreate(
+            $providerProfile = $provider->providerProfile()->updateOrCreate(
                 ['user_id' => $provider->id],
                 [
                     'business_name' => $providerData['business_name'],
@@ -220,8 +226,42 @@ class VerifiedProvidersSeeder extends Seeder
                 ],
             );
 
+            $providerProfile->tradeCategories()->updateOrCreate(
+                ['trade_category' => $providerData['trade_category']],
+                [
+                    'verification_status' => 'verified',
+                    'submitted_at' => now(),
+                    'verified_at' => now(),
+                    'reviewed_at' => now(),
+                ],
+            );
+
             $this->syncServices($provider, $storefront['services']);
         }
+    }
+
+    /**
+     * @return array{0: float, 1: float}
+     */
+    protected function coordinatesFor(string $city, string $area): array
+    {
+        return match ("{$city}|{$area}") {
+            'Harare|Avondale' => [-17.8024, 31.0371],
+            'Harare|Mount Pleasant' => [-17.7754, 31.0537],
+            'Harare|Highlands' => [-17.8128, 31.0913],
+            'Harare|Greendale' => [-17.8182, 31.1018],
+            'Harare|Westgate' => [-17.7731, 30.9804],
+            'Harare|Marlborough' => [-17.7728, 31.0191],
+            'Harare|Eastlea' => [-17.8157, 31.0754],
+            'Harare|Belvedere' => [-17.8297, 31.0157],
+            'Harare|CBD' => [-17.8318, 31.0457],
+            'Bulawayo|Hillside' => [-20.1874, 28.6046],
+            'Gweru|CBD' => [-19.4500, 29.8167],
+            'Mutare|Murambi' => [-18.9707, 32.6709],
+            'Masvingo|Rhodene' => [-20.0747, 30.8277],
+            'Chinhoyi|CBD' => [-17.3667, 30.2000],
+            default => [-17.8249, 31.0530],
+        };
     }
 
     /**
@@ -492,7 +532,7 @@ class VerifiedProvidersSeeder extends Seeder
     }
 
     /**
-     * @param array<int, array<string, mixed>> $services
+     * @param  array<int, array<string, mixed>>  $services
      */
     protected function syncServices(User $provider, array $services): void
     {

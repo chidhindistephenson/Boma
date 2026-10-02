@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\JobRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -12,7 +13,9 @@ class ProviderShowController extends Controller
     public function __invoke(Request $request, User $provider): Response
     {
         $provider->load([
+            'providerProfile.verifiedTradeCategories',
             'providerProfile.services',
+            'providerProfile.portfolioItems.providerService',
             'receivedProviderReviews.customer',
         ])->loadCount('receivedProviderReviews');
 
@@ -32,15 +35,40 @@ class ProviderShowController extends Controller
         $isShortlisted = $canShortlist
             ? $viewer->shortlistedProviders()->whereKey($provider->id)->exists()
             : false;
+        $chatRequest = $canShortlist
+            ? JobRequest::query()
+                ->where('customer_id', $viewer->id)
+                ->where('provider_id', $provider->id)
+                ->whereIn('status', ['targeted', 'in_conversation', 'accepted'])
+                ->latest('id')
+                ->first()
+            : null;
+        $chatMessages = $chatRequest
+            ? $chatRequest->messages()
+                ->with('sender')
+                ->limit(100)
+                ->get()
+                ->sortBy('id')
+                ->values()
+            : collect();
+
+        if ($chatRequest && $request->boolean('chat')) {
+            $chatRequest->markAsReadFor($viewer);
+        }
 
         $relatedProviders = User::query()
             ->directoryVisible(true)
-            ->with('providerProfile.services')
+            ->with(['providerProfile.services', 'providerProfile.verifiedTradeCategories'])
             ->withCount('receivedProviderReviews')
             ->withAvg('receivedProviderReviews as average_rating', 'rating')
             ->whereKeyNot($provider->id)
             ->whereHas('providerProfile', function ($query) use ($provider): void {
-                $query->where('trade_category', $provider->providerProfile->trade_category);
+                $query->whereHas('verifiedTradeCategories', function ($categoryQuery) use ($provider): void {
+                    $categoryQuery->whereIn(
+                        'trade_category',
+                        $provider->verifiedTradeCategoryNames(),
+                    );
+                });
             })
             ->latest('users.created_at')
             ->limit(3)
@@ -68,9 +96,11 @@ class ProviderShowController extends Controller
             'provider' => [
                 'id' => $provider->id,
                 'providerName' => $provider->name,
+                'profilePhotoUrl' => $provider->profilePhotoUrl(),
                 'businessName' => $provider->providerProfile->business_name,
                 'headline' => $provider->providerProfile->headline,
                 'category' => $provider->providerProfile->trade_category,
+                'categories' => $provider->verifiedTradeCategoryNames(),
                 'bio' => $provider->providerProfile->bio,
                 'city' => $provider->city,
                 'area' => $provider->area,
@@ -98,14 +128,31 @@ class ProviderShowController extends Controller
                     'turnaroundLabel' => $service->turnaround_label,
                     'isFeatured' => $service->is_featured,
                 ])->all(),
+                'portfolioItems' => $provider->providerProfile->portfolioItems->map(fn ($item): array => [
+                    'id' => $item->id,
+                    'title' => $item->title,
+                    'description' => $item->description,
+                    'mediaType' => $item->media_type,
+                    'mediaUrl' => route('providers.portfolio.media', [$provider, $item]),
+                    'serviceId' => $item->provider_service_id,
+                    'serviceTitle' => $item->providerService?->title,
+                    'originalName' => $item->original_name,
+                    'sizeBytes' => $item->size_bytes,
+                    'createdAt' => $item->created_at->toDateTimeString(),
+                ])->all(),
                 'reviews' => $provider->receivedProviderReviews
-                    ->take(5)
+                    ->take(12)
                     ->map(fn ($review): array => [
                         'id' => $review->id,
                         'rating' => $review->rating,
                         'headline' => $review->headline,
                         'body' => $review->body,
-                        'customerName' => $review->customer->name,
+                        'providerResponse' => $review->provider_response,
+                        'respondedAt' => $review->responded_at?->toDateTimeString(),
+                        'customerName' => $review->reviewerFirstName(),
+                        'canReport' => (bool) ($viewer
+                            && ! $viewer->isAdmin()
+                            && $viewer->id !== $review->customer_id),
                         'createdAt' => $review->created_at->toDateTimeString(),
                     ])
                     ->values()
@@ -116,7 +163,31 @@ class ProviderShowController extends Controller
             'isShortlisted' => $isShortlisted,
             'isOwnerPreview' => $isOwnerPreview,
             'isPubliclyVisible' => $isPubliclyVisible,
+            'chatThread' => $chatRequest ? [
+                'id' => $chatRequest->id,
+                'canMessage' => $chatRequest->canMessage($viewer),
+                'isMuted' => $chatRequest->chat_muted_at !== null,
+                'otherReadAt' => $chatRequest->provider_last_read_at?->toISOString(),
+                'messages' => $chatMessages->map(fn ($message): array => [
+                    'id' => $message->id,
+                    'body' => $message->body,
+                    'isOwn' => $message->sender_id === $viewer->id,
+                    'attachment' => $message->attachment_path ? [
+                        'url' => route('requests.messages.media', [$chatRequest, $message]),
+                        'name' => $message->attachment_original_name,
+                        'mimeType' => $message->attachment_mime_type,
+                        'sizeBytes' => $message->attachment_size_bytes,
+                        'isImage' => str_starts_with(
+                            $message->attachment_mime_type ?? '',
+                            'image/',
+                        ),
+                    ] : null,
+                    'createdAt' => $message->created_at->toDateTimeString(),
+                ])->all(),
+            ] : null,
+            'shouldOpenChat' => $canShortlist && $request->boolean('chat'),
             'relatedProviders' => $relatedProviders,
+            'reviewReportReasons' => config('localserve.reviews.report_reasons'),
         ]);
     }
 }

@@ -130,7 +130,7 @@ export default function Welcome({
                                 value={searchQuery}
                                 onChange={(event) => setSearchQuery(event.target.value)}
                                 placeholder="Search provider, category, or area"
-                                className="w-full rounded-full border border-zinc-300 bg-white/88 py-3 pl-12 pr-16 text-sm text-zinc-950 shadow-[0_18px_50px_rgba(0,0,0,0.06)] outline-none transition placeholder:text-zinc-400 focus:border-zinc-500 focus:ring-2 focus:ring-zinc-500/20 dark:border-white/10 dark:bg-zinc-950/80 dark:text-white dark:placeholder:text-zinc-500 dark:focus:border-zinc-400 dark:focus:ring-zinc-400/20"
+                                className="w-full rounded-full border border-zinc-300 bg-white/90 py-3 pl-12 pr-16 text-sm text-zinc-950 shadow-[0_18px_50px_rgba(0,0,0,0.06)] outline-none transition placeholder:text-zinc-400 focus:border-zinc-500 focus:ring-2 focus:ring-zinc-500/20 dark:border-white/10 dark:bg-zinc-950/80 dark:text-white dark:placeholder:text-zinc-500 dark:focus:border-zinc-400 dark:focus:ring-zinc-400/20"
                             />
                             {searchQuery ? (
                                 <button
@@ -260,7 +260,7 @@ export default function Welcome({
 
                         <section className="relative">
                             <div className="absolute inset-0 -rotate-2 rounded-[2.4rem] border border-zinc-300/70 bg-white/45 dark:border-white/10 dark:bg-white/[0.03]" />
-                            <div className="relative rounded-[2.4rem] border border-zinc-200/80 bg-white/88 p-6 shadow-[0_28px_90px_rgba(0,0,0,0.11)] backdrop-blur dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_28px_90px_rgba(0,0,0,0.45)] sm:p-7">
+                            <div className="relative rounded-[2.4rem] border border-zinc-200/80 bg-white/90 p-6 shadow-[0_28px_90px_rgba(0,0,0,0.11)] backdrop-blur dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_28px_90px_rgba(0,0,0,0.45)] sm:p-7">
                                 <div className="flex items-center justify-between gap-4 border-b border-zinc-200/80 pb-5 dark:border-white/10">
                                     <div>
                                         <p className="text-xs font-semibold uppercase tracking-[0.26em] text-zinc-500 dark:text-zinc-400">
@@ -377,7 +377,7 @@ export default function Welcome({
                     </main>
 
                     <section className="pb-10">
-                        <div className="overflow-hidden rounded-full border border-zinc-200/80 bg-white/80 py-3 shadow-[0_18px_60px_rgba(0,0,0,0.05)] backdrop-blur dark:border-white/10 dark:bg-zinc-950/72 dark:shadow-[0_18px_60px_rgba(0,0,0,0.35)]">
+                        <div className="overflow-hidden rounded-full border border-zinc-200/80 bg-white/80 py-3 shadow-[0_18px_60px_rgba(0,0,0,0.05)] backdrop-blur dark:border-white/10 dark:bg-zinc-950/75 dark:shadow-[0_18px_60px_rgba(0,0,0,0.35)]">
                             <div className="flex w-max animate-marquee gap-3 px-3">
                                 {categoryStream.map((category, index) => (
                                     <span
@@ -394,7 +394,7 @@ export default function Welcome({
                             {platformSignals.map((signal, index) => (
                                 <article
                                     key={signal.title}
-                                    className="rounded-[2rem] border border-zinc-200/80 bg-white/84 p-6 shadow-[0_20px_70px_rgba(0,0,0,0.06)] backdrop-blur dark:border-white/10 dark:bg-zinc-950/76 dark:shadow-[0_20px_70px_rgba(0,0,0,0.38)]"
+                                    className="rounded-[2rem] border border-zinc-200/80 bg-white/80 p-6 shadow-[0_20px_70px_rgba(0,0,0,0.06)] backdrop-blur dark:border-white/10 dark:bg-zinc-950/80 dark:shadow-[0_20px_70px_rgba(0,0,0,0.38)]"
                                 >
                                     <div className="flex items-center gap-3">
                                         <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-zinc-950 text-xs font-semibold uppercase tracking-[0.24em] text-white dark:bg-white dark:text-zinc-950">

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\SystemSettingsService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,7 +37,7 @@ class RegisteredUserController extends Controller
      *
      * @throws ValidationException
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, SystemSettingsService $settings): RedirectResponse
     {
         $request->validate([
             'role' => ['required', 'in:customer,provider'],
@@ -69,7 +70,7 @@ class RegisteredUserController extends Controller
             ],
         ]);
 
-        $user = DB::transaction(function () use ($request): User {
+        $user = DB::transaction(function () use ($request, $settings): User {
             $user = User::create([
                 'name' => $request->string('name')->toString(),
                 'email' => $request->string('email')->toString(),
@@ -84,16 +85,22 @@ class RegisteredUserController extends Controller
             ]);
 
             if ($user->isProvider()) {
-                $user->providerProfile()->create([
+                $profile = $user->providerProfile()->create([
                     'business_name' => $request->string('business_name')->toString(),
                     'trade_category' => $request->string('trade_category')->toString(),
                     'bio' => $request->string('bio')->toString(),
                     'verification_submitted_at' => now(),
                     'trial_ends_at' => now()->addDays(config('localserve.provider.trial_days')),
                 ]);
+
+                $profile->tradeCategories()->create([
+                    'trade_category' => $profile->trade_category,
+                    'verification_status' => $profile->verification_status ?? 'pending',
+                    'submitted_at' => $profile->verification_submitted_at,
+                ]);
             } else {
                 $user->customerProfile()->create([
-                    'preferred_radius_km' => config('localserve.search.default_radius_km'),
+                    'preferred_radius_km' => $settings->defaultSearchRadiusKm(),
                 ]);
             }
 

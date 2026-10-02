@@ -89,6 +89,17 @@ class AdminRequestController extends Controller
                     'scheduledFor' => $jobRequest->schedule?->scheduled_for?->toDateTimeString(),
                     'paymentStatus' => $jobRequest->payment?->status,
                     'paymentAmount' => $jobRequest->payment?->amount,
+                    'paymentChannel' => $jobRequest->payment
+                        ? ($jobRequest->payment->channel
+                            ?? (in_array($jobRequest->payment->method, config('localserve.payment.electronic_methods'), true)
+                                ? 'electronic'
+                                : 'manual'))
+                        : null,
+                    'paymentMethod' => $jobRequest->payment?->method,
+                    'paymentReference' => $jobRequest->payment?->reference,
+                    'paymentProofUrl' => $jobRequest->payment?->hasProof()
+                        ? route('requests.payment.proof', $jobRequest)
+                        : null,
                     'lastMessageAt' => $lastMessage?->created_at?->toDateTimeString(),
                     'createdAt' => $jobRequest->created_at->toDateTimeString(),
                 ];

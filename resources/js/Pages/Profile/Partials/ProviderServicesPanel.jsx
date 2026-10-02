@@ -31,7 +31,7 @@ function ProviderServiceCard({ service }) {
     return (
         <form
             onSubmit={submit}
-            className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50/85 p-5 dark:border-white/10 dark:bg-white/[0.03]"
+            className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50/90 p-5 dark:border-white/10 dark:bg-white/[0.03]"
         >
             <div className="grid gap-4 md:grid-cols-2">
                 <div>
@@ -175,7 +175,7 @@ export default function ProviderServicesPanel({ services = [] }) {
     };
 
     return (
-        <section className="rounded-[2rem] border border-zinc-200/80 bg-white/88 p-8 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+        <section className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-8 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <p className="text-sm font-semibold uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-400">
@@ -201,7 +201,7 @@ export default function ProviderServicesPanel({ services = [] }) {
                     ))}
                 </div>
             ) : (
-                <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/85 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
+                <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/90 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
                     No services listed yet. Add at least two concrete offerings so
                     customers can tell what they can request from you.
                 </div>

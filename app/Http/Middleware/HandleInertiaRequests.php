@@ -60,6 +60,9 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'auth' => [
                 'notifications' => $notificationSummary,
+                'messages' => [
+                    'unreadCount' => $user?->unreadConversationMessageCount() ?? 0,
+                ],
                 'user' => $user ? [
                     'id' => $user->id,
                     'name' => $user->name,
@@ -69,6 +72,10 @@ class HandleInertiaRequests extends Middleware
                     'status' => $user->status,
                     'city' => $user->city,
                     'area' => $user->area,
+                    'latitude' => $user->latitude,
+                    'longitude' => $user->longitude,
+                    'profilePhotoUrl' => $user->profilePhotoUrl(),
+                    'createdAt' => $user->created_at?->toDateTimeString(),
                     'email_verified_at' => $user->email_verified_at,
                     'shortlistedProvidersCount' => $user->isCustomer()
                         ? $user->shortlisted_providers_count

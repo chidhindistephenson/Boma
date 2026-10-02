@@ -18,6 +18,10 @@ function formatAmount(value) {
     return value ? `$${Number(value).toLocaleString()}` : 'Not set';
 }
 
+function formatPercent(value) {
+    return value === null || value === undefined ? 'N/A' : `${value}%`;
+}
+
 function formatDateTime(value, options = {}) {
     if (!value) {
         return 'Not set';
@@ -108,17 +112,53 @@ function requestProgressLine(jobRequest, viewerRole) {
     return `Status ${formatStatus(jobRequest.status)}`;
 }
 
+function statIconPath(label) {
+    const normalized = String(label).toLowerCase();
+
+    if (normalized.includes('provider') || normalized.includes('storefront')) {
+        return 'M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z';
+    }
+
+    if (normalized.includes('message') || normalized.includes('unread')) {
+        return 'M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 21.75a5.972 5.972 0 0 1-.474-3.255A8.25 8.25 0 0 1 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z';
+    }
+
+    if (normalized.includes('attention') || normalized.includes('pending') || normalized.includes('risk')) {
+        return 'M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z';
+    }
+
+    if (normalized.includes('rating') || normalized.includes('review')) {
+        return 'M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557L3.04 10.385a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345l2.125-5.111Z';
+    }
+
+    return 'M9 12h6m-6 4h6m2.25 5H6.75A2.25 2.25 0 0 1 4.5 18.75V5.25A2.25 2.25 0 0 1 6.75 3h7.5L19.5 8.25v10.5A2.25 2.25 0 0 1 17.25 21Z';
+}
+
 function StatCard({ label, value, helper }) {
     return (
-        <div className="rounded-[1.6rem] border border-zinc-200/80 bg-zinc-50/85 p-5 dark:border-white/10 dark:bg-white/[0.03]">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
-                {label}
-            </p>
-            <p className="mt-3 font-display text-3xl font-semibold text-zinc-950 dark:text-white">
-                {value}
-            </p>
+        <div className="boma-stat-card">
+            <div className="flex items-center gap-3">
+                <span className="boma-stat-card-icon">
+                    <svg
+                        aria-hidden="true"
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                    >
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d={statIconPath(label)}
+                        />
+                    </svg>
+                </span>
+                <p className="boma-stat-card-title">{label}</p>
+            </div>
+            <p className="boma-stat-card-value mt-5">{value}</p>
             {helper ? (
-                <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
                     {helper}
                 </p>
             ) : null}
@@ -151,7 +191,7 @@ function ActionTile({ title, body, href, cta }) {
     return (
         <Link
             href={href}
-            className="rounded-[1.6rem] border border-zinc-200/80 bg-zinc-50/85 p-5 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/20 dark:hover:bg-zinc-900"
+            className="rounded-[1.6rem] border border-zinc-200/80 bg-zinc-50/90 p-5 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/20 dark:hover:bg-zinc-900"
         >
             <p className="font-display text-xl font-semibold text-zinc-950 dark:text-white">
                 {title}
@@ -178,7 +218,7 @@ function RequestPreview({ jobRequest, viewerRole = 'customer' }) {
     return (
         <Link
             href={route('requests.show', jobRequest.id)}
-            className="block rounded-[1.6rem] border border-zinc-200/80 bg-zinc-50/85 p-5 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/20 dark:hover:bg-zinc-900"
+            className="block rounded-[1.6rem] border border-zinc-200/80 bg-zinc-50/90 p-5 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/20 dark:hover:bg-zinc-900"
         >
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
@@ -225,6 +265,260 @@ function RequestPreview({ jobRequest, viewerRole = 'customer' }) {
                         {requestProgressLine(jobRequest, viewerRole)}
                     </p>
                 </div>
+            </div>
+        </Link>
+    );
+}
+
+function customerRequestStage(jobRequest) {
+    if (jobRequest.paymentStatus === 'confirmed') {
+        return 'Payment confirmed';
+    }
+
+    if (jobRequest.paymentNeedsUpdate) {
+        return 'Payment needs update';
+    }
+
+    if (jobRequest.scheduleNeedsResponse) {
+        return 'Visit proposed';
+    }
+
+    if (jobRequest.quoteNeedsResponse) {
+        return 'Quote ready';
+    }
+
+    if (jobRequest.providerLabel === 'Open request') {
+        return 'Finding providers';
+    }
+
+    return formatStatus(jobRequest.status);
+}
+
+function CustomerRequestCard({ jobRequest }) {
+    const attention = customerAttentionLabel(jobRequest);
+
+    return (
+        <Link
+            href={route('requests.show', jobRequest.id)}
+            className="group block rounded-[2rem] border border-zinc-200/80 bg-white p-5 shadow-[0_18px_50px_rgba(0,0,0,0.06)] transition hover:-translate-y-1 hover:border-zinc-300 hover:shadow-[0_26px_70px_rgba(0,0,0,0.12)] dark:border-white/10 dark:bg-zinc-950/90 dark:hover:border-white/20"
+        >
+            <div className="flex items-start justify-between gap-4">
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
+                        {customerRequestStage(jobRequest)}
+                    </p>
+                    <h4 className="mt-3 font-display text-2xl font-semibold leading-tight text-zinc-950 dark:text-white">
+                        {jobRequest.title}
+                    </h4>
+                </div>
+                {attention ? (
+                    <span className="shrink-0 rounded-full bg-zinc-950 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white dark:bg-white dark:text-zinc-950">
+                        Action
+                    </span>
+                ) : null}
+            </div>
+
+            <div className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
+                <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+                        Provider
+                    </p>
+                    <p className="mt-2 font-semibold text-zinc-950 dark:text-white">
+                        {jobRequest.providerLabel}
+                    </p>
+                </div>
+                <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+                        Progress
+                    </p>
+                    <p className="mt-2 font-semibold text-zinc-950 dark:text-white">
+                        {requestProgressLine(jobRequest, 'customer')}
+                    </p>
+                </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    {jobRequest.locationLabel || 'Location pending'} |{' '}
+                    {jobRequest.messageCount} message
+                    {jobRequest.messageCount === 1 ? '' : 's'}
+                </p>
+                <span className="text-sm font-semibold text-zinc-950 transition group-hover:translate-x-1 dark:text-white">
+                    Open request
+                </span>
+            </div>
+        </Link>
+    );
+}
+
+function CustomerProviderCard({ provider }) {
+    return (
+        <Link
+            href={route('providers.show', provider.id)}
+            className="block rounded-[2rem] border border-zinc-200/80 bg-zinc-50/90 p-5 transition hover:-translate-y-1 hover:border-zinc-300 hover:bg-white hover:shadow-[0_20px_60px_rgba(0,0,0,0.1)] dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/20 dark:hover:bg-zinc-900"
+        >
+            <div className="flex items-start justify-between gap-4">
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
+                        {provider.category}
+                    </p>
+                    <h4 className="mt-3 font-display text-2xl font-semibold leading-tight text-zinc-950 dark:text-white">
+                        {provider.businessName}
+                    </h4>
+                </div>
+                {provider.verificationStatus === 'verified' ? <VerifiedBadge /> : null}
+            </div>
+            <p className="mt-4 text-sm text-zinc-600 dark:text-zinc-400">
+                {provider.locationLabel || 'Location pending'}
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+                <span className="rounded-full border border-zinc-300 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-700 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-300">
+                    {formatStatus(provider.availabilityStatus)}
+                </span>
+                <span className="rounded-full border border-zinc-300 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-700 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-300">
+                    {formatRating(provider.averageRating)}
+                </span>
+            </div>
+        </Link>
+    );
+}
+
+function MiniBars({ values = [] }) {
+    const max = Math.max(...values, 1);
+
+    return (
+        <div className="flex h-12 items-end gap-1">
+            {values.map((value, index) => (
+                <span
+                    key={`${value}-${index}`}
+                    className="w-1.5 rounded-full bg-zinc-300 dark:bg-white/30"
+                    style={{ height: `${Math.max(18, (value / max) * 100)}%` }}
+                />
+            ))}
+        </div>
+    );
+}
+
+function AdminKpiCard({ label, value, helper, values }) {
+    return (
+        <div className="rounded-[1.6rem] border border-zinc-200 bg-white p-5 shadow-[0_14px_40px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-white/[0.03]">
+            <div className="flex items-start justify-between gap-4">
+                <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
+                        {label}
+                    </p>
+                    <p className="mt-3 font-display text-3xl font-semibold text-zinc-950 dark:text-white">
+                        {value}
+                    </p>
+                </div>
+                <MiniBars values={values} />
+            </div>
+            <p className="mt-4 border-t border-zinc-200 pt-3 text-xs font-medium text-zinc-500 dark:border-white/10 dark:text-zinc-400">
+                {helper}
+            </p>
+        </div>
+    );
+}
+
+function AdminProviderRow({ provider }) {
+    return (
+        <Link
+            href={route('admin.providers.index', { status: 'pending' })}
+            className="grid gap-4 rounded-[1.3rem] border border-zinc-200 bg-zinc-50 p-4 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/20 dark:hover:bg-zinc-900 lg:grid-cols-[1.4fr_0.8fr_0.6fr_0.7fr]"
+        >
+            <div>
+                <p className="font-semibold text-zinc-950 dark:text-white">
+                    {provider.businessName}
+                </p>
+                <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                    {provider.providerName}
+                </p>
+            </div>
+            <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">
+                    Trade
+                </p>
+                <p className="mt-1 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                    {provider.tradeCategory || 'Not set'}
+                </p>
+            </div>
+            <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">
+                    Evidence
+                </p>
+                <p className="mt-1 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                    {provider.documentCount} docs
+                </p>
+            </div>
+            <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">
+                    Submitted
+                </p>
+                <p className="mt-1 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                    {formatDateTime(provider.submittedAt, { timeStyle: undefined })}
+                </p>
+            </div>
+        </Link>
+    );
+}
+
+function AdminProgressRow({ label, value, total, href }) {
+    const width = total > 0 ? Math.max(6, Math.min(100, (value / total) * 100)) : 0;
+
+    return (
+        <Link href={href} className="block rounded-2xl p-3 transition hover:bg-zinc-50 dark:hover:bg-white/[0.04]">
+            <div className="flex items-center justify-between gap-4">
+                <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                    {label}
+                </p>
+                <p className="font-display text-xl font-semibold text-zinc-950 dark:text-white">
+                    {value}
+                </p>
+            </div>
+            <div className="mt-3 h-2 rounded-full bg-zinc-200 dark:bg-white/10">
+                <div
+                    className="h-full rounded-full bg-zinc-950 dark:bg-white"
+                    style={{ width: `${width}%` }}
+                />
+            </div>
+        </Link>
+    );
+}
+
+function AdminActivityRow({ row }) {
+    return (
+        <Link
+            href={row.href}
+            className="grid gap-4 border-b border-zinc-200 px-4 py-4 transition hover:bg-zinc-50 dark:border-white/10 dark:hover:bg-white/[0.04] md:grid-cols-[0.8fr_1.5fr_0.9fr_0.8fr]"
+        >
+            <div>
+                <span className="rounded-full border border-zinc-300 bg-white px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-700 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300">
+                    {row.type}
+                </span>
+            </div>
+            <div>
+                <p className="font-semibold text-zinc-950 dark:text-white">
+                    {row.title}
+                </p>
+                <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                    {row.subtitle}
+                </p>
+            </div>
+            <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">
+                    Status
+                </p>
+                <p className="mt-1 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                    {row.status}
+                </p>
+            </div>
+            <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">
+                    Date
+                </p>
+                <p className="mt-1 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                    {formatDateTime(row.date, { timeStyle: undefined })}
+                </p>
             </div>
         </Link>
     );
@@ -321,7 +615,7 @@ export default function Dashboard({
           ? { href: route('requests.index'), label: 'Open request inbox' }
           : { href: route('requests.create'), label: 'Post a new request' };
     const secondaryAction = isAdmin
-        ? { href: route('admin.analytics.index'), label: 'Open analytics' }
+        ? { href: route('admin.requests.index'), label: 'Open request oversight' }
         : isProvider
           ? {
                 href: route('providers.show', user.id),
@@ -337,9 +631,9 @@ export default function Dashboard({
                   helper: 'Waiting for trust review',
               },
               {
-                  label: 'Request alerts',
-                  value: requestAlerts.length,
-                  helper: 'Threads needing admin attention',
+                  label: 'Flagged reviews',
+                  value: platformSummary?.flaggedReviews ?? 0,
+                  helper: 'Waiting for moderation',
               },
               {
                   label: 'Suspended users',
@@ -364,10 +658,10 @@ export default function Dashboard({
                     value: providerNeedsAttention,
                     helper: 'Replies, quotes, and confirmations',
                 },
-                {
-                    label: 'Services live',
-                    value: providerSummary?.serviceCount ?? 0,
-                    helper: 'Visible storefront service cards',
+              {
+                  label: 'Matching jobs',
+                  value: providerSummary?.matchingOpenRequests ?? 0,
+                  helper: 'Open opportunities in your area',
                 },
                 {
                     label: 'Storefront status',
@@ -411,6 +705,14 @@ export default function Dashboard({
                   cta: 'Open provider queue',
               },
               {
+                  title: 'Moderate flagged reviews',
+                  body: `${platformSummary?.flaggedReviews ?? 0} review${
+                      (platformSummary?.flaggedReviews ?? 0) === 1 ? '' : 's'
+                  } waiting for a trust and safety decision.`,
+                  href: route('admin.reviews.index'),
+                  cta: 'Open review moderation',
+              },
+              {
                   title: 'Inspect request alerts',
                   body: `${requestAlerts.length} request thread${
                       requestAlerts.length === 1 ? '' : 's'
@@ -427,16 +729,6 @@ export default function Dashboard({
                   } on the platform.`,
                   href: route('admin.users.index'),
                   cta: 'Open user directory',
-              },
-              {
-                  title: 'Check platform analytics',
-                  body: `${platformSummary?.jobRequests ?? 0} request${
-                      (platformSummary?.jobRequests ?? 0) === 1 ? '' : 's'
-                  } and ${platformSummary?.categories ?? 0} active service categor${
-                      (platformSummary?.categories ?? 0) === 1 ? 'y' : 'ies'
-                  } tracked across Boma.`,
-                  href: route('admin.analytics.index'),
-                  cta: 'Open analytics',
               },
           ]
         : isProvider
@@ -466,10 +758,14 @@ export default function Dashboard({
                     cta: 'Open payment tasks',
                 },
                 {
-                    title: 'Tighten your storefront',
-                    body: 'Keep pricing cues, services, and availability current so customers do not have to guess.',
-                    href: route('profile.edit'),
-                    cta: 'Edit storefront',
+                    title: 'Explore matching work',
+                    body: `${providerSummary?.matchingOpenRequests ?? 0} open job${
+                        (providerSummary?.matchingOpenRequests ?? 0) === 1
+                            ? ''
+                            : 's'
+                    } match your trade and service area.`,
+                    href: route('request-board.index'),
+                    cta: 'Open job board',
                 },
             ]
           : [
@@ -534,6 +830,561 @@ export default function Dashboard({
                 customerPendingReviews === 1 ? '' : 's'
             } can already become public provider reviews.`;
 
+    const featuredCustomerRequest =
+        customerJobRequests.find((jobRequest) => customerAttentionLabel(jobRequest)) ??
+        customerJobRequests[0] ??
+        null;
+
+    const adminKpis = [
+        {
+            label: 'Total users',
+            value: platformSummary?.totalUsers ?? 0,
+            helper: `${platformSummary?.activeCustomers ?? 0} active customers`,
+            values: [
+                platformSummary?.activeCustomers ?? 0,
+                platformSummary?.verifiedProviders ?? 0,
+                platformSummary?.suspendedUsers ?? 0,
+                platformSummary?.pendingProviderVerifications ?? 0,
+            ],
+        },
+        {
+            label: 'Verified providers',
+            value: platformSummary?.verifiedProviders ?? 0,
+            helper: `${platformSummary?.categories ?? 0} categories represented`,
+            values: [
+                platformSummary?.categories ?? 0,
+                platformSummary?.verifiedProviders ?? 0,
+                platformSummary?.shortlists ?? 0,
+                platformSummary?.jobRequests ?? 0,
+            ],
+        },
+        {
+            label: 'Job requests',
+            value: platformSummary?.jobRequests ?? 0,
+            helper: `${platformSummary?.unassignedRequests ?? 0} unassigned`,
+            values: [
+                platformSummary?.unassignedRequests ?? 0,
+                platformSummary?.targetedWithoutQuote ?? 0,
+                platformSummary?.paymentsAwaitingConfirmation ?? 0,
+                platformSummary?.jobRequests ?? 0,
+            ],
+        },
+        {
+            label: 'Moderation risk',
+            value:
+                (platformSummary?.flaggedReviews ?? 0) +
+                (platformSummary?.suspendedUsers ?? 0),
+            helper: `${platformSummary?.flaggedReviews ?? 0} flagged reviews`,
+            values: [
+                platformSummary?.flaggedReviews ?? 0,
+                platformSummary?.suspendedUsers ?? 0,
+                platformSummary?.rejectedProviders ?? 0,
+                platformSummary?.pendingProviderVerifications ?? 0,
+            ],
+        },
+    ];
+    const adminConversionCards = [
+        {
+            label: 'Quote coverage',
+            value: formatPercent(platformSummary?.quoteCoverageRate),
+            helper: `${platformSummary?.quoteCount ?? 0} quote${
+                (platformSummary?.quoteCount ?? 0) === 1 ? '' : 's'
+            } on targeted work`,
+        },
+        {
+            label: 'Quote acceptance',
+            value: formatPercent(platformSummary?.quoteAcceptanceRate),
+            helper: `${platformSummary?.acceptedQuoteCount ?? 0} accepted quote${
+                (platformSummary?.acceptedQuoteCount ?? 0) === 1 ? '' : 's'
+            }`,
+        },
+        {
+            label: 'Average quote',
+            value: formatAmount(platformSummary?.averageQuoteAmount),
+            helper: 'Mean submitted quote value',
+        },
+        {
+            label: 'Review completion',
+            value: formatPercent(platformSummary?.reviewCompletionRate),
+            helper: `${platformSummary?.reviewCount ?? 0} published review${
+                (platformSummary?.reviewCount ?? 0) === 1 ? '' : 's'
+            }`,
+        },
+    ];
+
+    const adminQueueTotal = Math.max(
+        1,
+        (platformSummary?.pendingProviderVerifications ?? 0) +
+            (platformSummary?.flaggedReviews ?? 0) +
+            requestAlerts.length +
+            (platformSummary?.suspendedUsers ?? 0),
+    );
+    const adminActivityRows = [
+        ...pendingProviders.map((provider) => ({
+            type: 'Provider',
+            title: provider.businessName,
+            subtitle: `${provider.tradeCategory || 'Trade pending'} in ${
+                provider.locationLabel || 'location pending'
+            }`,
+            status: `${provider.documentCount} document${
+                provider.documentCount === 1 ? '' : 's'
+            }`,
+            date: provider.submittedAt,
+            href: route('admin.providers.index', { status: 'pending' }),
+        })),
+        ...requestAlerts.map((jobRequest) => ({
+            type: 'Request',
+            title: jobRequest.title,
+            subtitle: `${jobRequest.customerName} with ${jobRequest.providerLabel}`,
+            status: jobRequest.alertLabel,
+            date: jobRequest.createdAt,
+            href: route('admin.requests.index'),
+        })),
+        ...recentModeration.map((entry) => ({
+            type: 'Account',
+            title: entry.name,
+            subtitle: entry.suspensionReason || 'No reason recorded',
+            status: formatStatus(entry.status),
+            date: entry.suspendedAt,
+            href: route('admin.users.index'),
+        })),
+    ].slice(0, 8);
+    const adminChartBars = [
+        platformSummary?.activeCustomers ?? 0,
+        platformSummary?.verifiedProviders ?? 0,
+        platformSummary?.jobRequests ?? 0,
+        platformSummary?.shortlists ?? 0,
+        platformSummary?.pendingProviderVerifications ?? 0,
+        platformSummary?.targetedWithoutQuote ?? 0,
+        platformSummary?.paymentsAwaitingConfirmation ?? 0,
+        platformSummary?.flaggedReviews ?? 0,
+        platformSummary?.suspendedUsers ?? 0,
+    ];
+    const adminChartMax = Math.max(...adminChartBars, 1);
+
+    if (isCustomer) {
+        return (
+            <AuthenticatedLayout
+                header={
+                    <div className="flex flex-col gap-2">
+                        <p className="text-sm font-semibold uppercase tracking-[0.26em] text-zinc-500 dark:text-zinc-400">
+                            Control center
+                        </p>
+                        <h2 className="font-display text-3xl font-semibold leading-tight text-zinc-950 dark:text-white">
+                            {heading}
+                        </h2>
+                    </div>
+                }
+            >
+                <Head title="Dashboard" />
+
+                <div className="py-10">
+                    <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+                        <section className="relative overflow-hidden rounded-[2.6rem] border border-zinc-200/80 bg-white/90 p-8 text-zinc-950 shadow-[0_24px_80px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950 dark:text-white dark:shadow-[0_34px_100px_rgba(0,0,0,0.28)] sm:p-10">
+                            <div className="absolute -right-20 -top-28 h-80 w-80 rounded-full border border-zinc-200 dark:border-white/10" />
+                            <div className="absolute bottom-8 right-16 h-32 w-32 rounded-full bg-zinc-200/70 blur-2xl dark:bg-white/10" />
+                            <div className="absolute left-1/2 top-10 h-px w-1/2 bg-gradient-to-r from-zinc-300 to-transparent dark:from-white/30" />
+                            <div className="relative flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-semibold uppercase tracking-[0.26em] text-zinc-500 dark:text-zinc-400">
+                                        Welcome back
+                                    </p>
+                                    <h3 className="mt-4 max-w-4xl font-display text-5xl font-semibold leading-[0.95] text-zinc-950 dark:text-white sm:text-6xl">
+                                        Boma, keep your jobs moving.
+                                    </h3>
+                                    <p className="mt-4 text-base text-zinc-600 dark:text-zinc-300">
+                                        Track requests, replies, and next steps in one place.
+                                    </p>
+
+                                    <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                                        <div className="rounded-2xl border border-zinc-200 bg-zinc-50/90 p-4 dark:border-white/10 dark:bg-white/5">
+                                            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+                                                Unread
+                                            </p>
+                                            <p className="mt-2 font-display text-3xl font-semibold text-zinc-950 dark:text-white">
+                                                {customerUnreadMessages}
+                                            </p>
+                                            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                                                Provider replies waiting
+                                            </p>
+                                        </div>
+                                        <div className="rounded-2xl border border-zinc-200 bg-zinc-50/90 p-4 dark:border-white/10 dark:bg-white/5">
+                                            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+                                                Quotes
+                                            </p>
+                                            <p className="mt-2 font-display text-3xl font-semibold text-zinc-950 dark:text-white">
+                                                {customerPendingQuotes}
+                                            </p>
+                                            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                                                Need approval or decline
+                                            </p>
+                                        </div>
+                                        <div className="rounded-2xl border border-zinc-200 bg-zinc-50/90 p-4 dark:border-white/10 dark:bg-white/5">
+                                            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+                                                Visits
+                                            </p>
+                                            <p className="mt-2 font-display text-3xl font-semibold text-zinc-950 dark:text-white">
+                                                {customerPendingSchedules}
+                                            </p>
+                                            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                                                Need confirmation
+                                            </p>
+                                        </div>
+                                        <div className="rounded-2xl border border-zinc-200 bg-zinc-50/90 p-4 dark:border-white/10 dark:bg-white/5">
+                                            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+                                                Reviews
+                                            </p>
+                                            <p className="mt-2 font-display text-3xl font-semibold text-zinc-950 dark:text-white">
+                                                {customerPendingReviews}
+                                            </p>
+                                            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                                                Ready after completed work
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex w-full flex-col gap-3 sm:w-64">
+                                    <Link
+                                        href={route('requests.index', {
+                                            attention: 1,
+                                        })}
+                                        className="rounded-full bg-zinc-950 px-6 py-3 text-center text-sm font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
+                                    >
+                                        Needs action
+                                    </Link>
+                                    <Link
+                                        href={route('requests.create')}
+                                        className="rounded-full border border-zinc-300 px-6 py-3 text-center text-sm font-semibold uppercase tracking-[0.16em] text-zinc-950 transition hover:border-zinc-400 hover:bg-zinc-50 dark:border-white/20 dark:text-white dark:hover:border-white/40 dark:hover:bg-white/10"
+                                    >
+                                        New request
+                                    </Link>
+                                    <Link
+                                        href={route('providers.index')}
+                                        className="rounded-full border border-zinc-300 px-6 py-3 text-center text-sm font-semibold uppercase tracking-[0.16em] text-zinc-950 transition hover:border-zinc-400 hover:bg-zinc-50 dark:border-white/20 dark:text-white dark:hover:border-white/40 dark:hover:bg-white/10"
+                                    >
+                                        Browse providers
+                                    </Link>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_0.95fr]">
+                            <div className="rounded-[2.3rem] border border-zinc-200/80 bg-white/90 p-6 shadow-[0_18px_60px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_60px_rgba(0,0,0,0.34)]">
+                                <SectionHeader
+                                    eyebrow="Active work"
+                                    title="Requests worth opening first"
+                                    description="Recent job threads are shown with the current stage and the provider attached to each job."
+                                    action={
+                                        <Link
+                                            href={route('requests.index')}
+                                            className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:border-zinc-400 hover:bg-zinc-50 dark:border-white/10 dark:bg-zinc-950 dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
+                                        >
+                                            View all
+                                        </Link>
+                                    }
+                                />
+
+                                {customerJobRequests.length ? (
+                                    <div className="mt-6 space-y-4">
+                                        {customerJobRequests
+                                            .slice(0, 3)
+                                            .map((jobRequest) => (
+                                                <CustomerRequestCard
+                                                    key={jobRequest.id}
+                                                    jobRequest={jobRequest}
+                                                />
+                                            ))}
+                                    </div>
+                                ) : (
+                                    <div className="mt-6 rounded-[1.8rem] border border-dashed border-zinc-300 bg-zinc-50 p-8 dark:border-white/10 dark:bg-white/[0.03]">
+                                        <h4 className="font-display text-2xl font-semibold text-zinc-950 dark:text-white">
+                                            No requests yet
+                                        </h4>
+                                        <p className="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-400">
+                                            Start with one clear request. Boma will keep provider replies, quotes, visits, payments, and reviews in one flow.
+                                        </p>
+                                        <Link
+                                            href={route('requests.create')}
+                                            className="mt-6 inline-flex rounded-full bg-zinc-950 px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white dark:bg-white dark:text-zinc-950"
+                                        >
+                                            Post first request
+                                        </Link>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="space-y-6">
+                                {featuredCustomerRequest ? (
+                                    <div className="rounded-[2.3rem] border border-zinc-200/80 bg-white/90 p-6 text-zinc-950 shadow-[0_18px_60px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950 dark:text-white dark:shadow-[0_28px_90px_rgba(0,0,0,0.26)]">
+                                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-400">
+                                            Featured thread
+                                        </p>
+                                        <h4 className="mt-3 font-display text-3xl font-semibold leading-tight text-zinc-950 dark:text-white">
+                                            {featuredCustomerRequest.title}
+                                        </h4>
+                                        <p className="mt-4 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
+                                            {customerAttentionLabel(featuredCustomerRequest) ??
+                                                requestProgressLine(
+                                                    featuredCustomerRequest,
+                                                    'customer',
+                                                )}
+                                        </p>
+                                        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                                            <div className="rounded-2xl border border-zinc-200 bg-zinc-50/90 p-4 dark:border-white/10 dark:bg-white/5">
+                                                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+                                                    Provider
+                                                </p>
+                                                <p className="mt-2 font-semibold text-zinc-950 dark:text-white">
+                                                    {featuredCustomerRequest.providerLabel}
+                                                </p>
+                                            </div>
+                                            <div className="rounded-2xl border border-zinc-200 bg-zinc-50/90 p-4 dark:border-white/10 dark:bg-white/5">
+                                                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+                                                    Status
+                                                </p>
+                                                <p className="mt-2 font-semibold text-zinc-950 dark:text-white">
+                                                    {formatStatus(featuredCustomerRequest.status)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <Link
+                                            href={route(
+                                                'requests.show',
+                                                featuredCustomerRequest.id,
+                                            )}
+                                            className="mt-6 inline-flex rounded-full bg-zinc-950 px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
+                                        >
+                                            Open thread
+                                        </Link>
+                                    </div>
+                                ) : null}
+
+                                <div className="rounded-[2.3rem] border border-zinc-200/80 bg-white/90 p-6 shadow-[0_18px_60px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_60px_rgba(0,0,0,0.34)]">
+                                    <SectionHeader
+                                        eyebrow="Shortlist"
+                                        title="Providers kept close"
+                                        description="Saved providers stay here for repeat work, second opinions, or follow-up requests."
+                                        action={
+                                            <Link
+                                                href={route('shortlist.index')}
+                                                className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:border-zinc-400 hover:bg-zinc-50 dark:border-white/10 dark:bg-zinc-950 dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
+                                            >
+                                                Open shortlist
+                                            </Link>
+                                        }
+                                    />
+
+                                    {shortlistedProviders.length ? (
+                                        <div className="mt-6 space-y-4">
+                                            {shortlistedProviders
+                                                .slice(0, 3)
+                                                .map((provider) => (
+                                                    <CustomerProviderCard
+                                                        key={provider.id}
+                                                        provider={provider}
+                                                    />
+                                                ))}
+                                        </div>
+                                    ) : (
+                                        <div className="mt-6 rounded-[1.8rem] border border-dashed border-zinc-300 bg-zinc-50 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
+                                            No saved providers yet. Browse the directory and shortlist the providers you trust for later.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </AuthenticatedLayout>
+        );
+    }
+
+    if (isAdmin) {
+        return (
+            <AuthenticatedLayout
+                header={
+                    <div className="flex flex-col gap-2">
+                        <p className="text-sm font-semibold uppercase tracking-[0.26em] text-zinc-500 dark:text-zinc-400">
+                            Platform command
+                        </p>
+                        <h2 className="font-display text-3xl font-semibold leading-tight text-zinc-950 dark:text-white">
+                            Admin dashboard
+                        </h2>
+                    </div>
+                }
+            >
+                <Head title="Admin Dashboard" />
+
+                <div className="py-8">
+                    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                        <section className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-[0_24px_90px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950 dark:shadow-[0_34px_110px_rgba(0,0,0,0.38)]">
+                            <div className="min-h-[760px]">
+                                <main className="bg-white p-5 dark:bg-zinc-950 sm:p-7">
+                                    <div className="flex flex-col gap-4 border-b border-zinc-200 pb-6 dark:border-white/10 xl:flex-row xl:items-center xl:justify-between">
+                                        <div>
+                                            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-400">
+                                                Overview
+                                            </p>
+                                            <h3 className="mt-2 font-display text-4xl font-semibold text-zinc-950 dark:text-white">
+                                                Marketplace operations
+                                            </h3>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            <Link
+                                                href={route('admin.providers.index', { status: 'pending' })}
+                                                className="rounded-full bg-zinc-950 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-zinc-800 dark:bg-white dark:text-zinc-950"
+                                            >
+                                                Review queue
+                                            </Link>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                                        {adminKpis.map((card) => (
+                                            <AdminKpiCard key={card.label} {...card} />
+                                        ))}
+                                    </div>
+
+                                    <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                                        {adminConversionCards.map((card) => (
+                                            <StatCard
+                                                key={card.label}
+                                                label={card.label}
+                                                value={card.value}
+                                                helper={card.helper}
+                                            />
+                                        ))}
+                                    </div>
+
+                                    <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_360px]">
+                                        <section className="rounded-[1.7rem] border border-zinc-200 bg-zinc-50/70 p-5 dark:border-white/10 dark:bg-white/[0.03]">
+                                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                                <div>
+                                                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-400">
+                                                        Platform signal
+                                                    </p>
+                                                    <h4 className="mt-2 font-display text-2xl font-semibold text-zinc-950 dark:text-white">
+                                                        Activity distribution
+                                                    </h4>
+                                                </div>
+                                                <span className="rounded-full border border-zinc-300 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-700 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300">
+                                                    Live snapshot
+                                                </span>
+                                            </div>
+
+                                            <div className="mt-8 flex h-72 items-end gap-3 border-b border-l border-zinc-200 px-3 pb-3 dark:border-white/10">
+                                                {adminChartBars.map((value, index) => (
+                                                    <div key={`${value}-${index}`} className="flex flex-1 flex-col items-center gap-2">
+                                                        <div
+                                                            className="w-full max-w-10 rounded-t-2xl bg-zinc-950 transition dark:bg-white"
+                                                            style={{
+                                                                height: `${Math.max(8, (value / adminChartMax) * 230)}px`,
+                                                            }}
+                                                        />
+                                                        <span className="text-[10px] font-semibold text-zinc-400">
+                                                            {index + 1}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            <div className="mt-5 grid gap-3 text-xs text-zinc-500 dark:text-zinc-400 sm:grid-cols-3">
+                                                <p>1 Customers</p>
+                                                <p>2 Providers</p>
+                                                <p>3 Requests</p>
+                                                <p>4 Shortlists</p>
+                                                <p>5 Pending</p>
+                                                <p>6 No quote</p>
+                                                <p>7 Payments</p>
+                                                <p>8 Reviews</p>
+                                                <p>9 Suspended</p>
+                                            </div>
+                                        </section>
+
+                                        <section className="rounded-[1.7rem] border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
+                                            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-400">
+                                                Decision mix
+                                            </p>
+                                            <h4 className="mt-2 font-display text-2xl font-semibold text-zinc-950 dark:text-white">
+                                                What needs attention
+                                            </h4>
+                                            <div className="mt-5 space-y-1">
+                                                <AdminProgressRow
+                                                    label="Provider verification"
+                                                    value={platformSummary?.pendingProviderVerifications ?? 0}
+                                                    total={adminQueueTotal}
+                                                    href={route('admin.providers.index', { status: 'pending' })}
+                                                />
+                                                <AdminProgressRow
+                                                    label="Request alerts"
+                                                    value={requestAlerts.length}
+                                                    total={adminQueueTotal}
+                                                    href={route('admin.requests.index')}
+                                                />
+                                                <AdminProgressRow
+                                                    label="Flagged reviews"
+                                                    value={platformSummary?.flaggedReviews ?? 0}
+                                                    total={adminQueueTotal}
+                                                    href={route('admin.reviews.index')}
+                                                />
+                                                <AdminProgressRow
+                                                    label="Suspended users"
+                                                    value={platformSummary?.suspendedUsers ?? 0}
+                                                    total={adminQueueTotal}
+                                                    href={route('admin.users.index')}
+                                                />
+                                            </div>
+                                        </section>
+                                    </div>
+
+                                    <section className="mt-5 overflow-hidden rounded-[1.7rem] border border-zinc-200 bg-white dark:border-white/10 dark:bg-zinc-950">
+                                        <div className="flex flex-col gap-3 border-b border-zinc-200 p-5 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+                                            <div>
+                                                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-400">
+                                                    Operations table
+                                                </p>
+                                                <h4 className="mt-2 font-display text-2xl font-semibold text-zinc-950 dark:text-white">
+                                                    Latest admin work
+                                                </h4>
+                                            </div>
+                                            <Link
+                                                href={route('admin.requests.index')}
+                                                className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:border-zinc-400 hover:bg-zinc-50 dark:border-white/10 dark:bg-zinc-950 dark:text-white dark:hover:border-white/20"
+                                            >
+                                                Open request oversight
+                                            </Link>
+                                        </div>
+
+                                        <div className="hidden border-b border-zinc-200 bg-zinc-50 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400 md:grid md:grid-cols-[0.8fr_1.5fr_0.9fr_0.8fr]">
+                                            <span>Type</span>
+                                            <span>Item</span>
+                                            <span>Status</span>
+                                            <span>Date</span>
+                                        </div>
+
+                                        {adminActivityRows.length ? (
+                                            adminActivityRows.map((row) => (
+                                                <AdminActivityRow
+                                                    key={`${row.type}-${row.title}-${row.date}`}
+                                                    row={row}
+                                                />
+                                            ))
+                                        ) : (
+                                            <div className="p-6 text-sm text-zinc-500 dark:text-zinc-400">
+                                                No admin work is waiting right now.
+                                            </div>
+                                        )}
+                                    </section>
+                                </main>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </AuthenticatedLayout>
+        );
+    }
+
     return (
         <AuthenticatedLayout
             header={
@@ -551,7 +1402,7 @@ export default function Dashboard({
 
             <div className="py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <section className="rounded-[2.2rem] border border-zinc-200/80 bg-white/88 p-8 shadow-[0_24px_70px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_24px_70px_rgba(0,0,0,0.38)]">
+                    <section className="rounded-[2.2rem] border border-zinc-200/80 bg-white/90 p-8 shadow-[0_24px_70px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_24px_70px_rgba(0,0,0,0.38)]">
                         <div className="flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
                             <div className="max-w-3xl">
                                 <p className="text-sm font-semibold uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-400">
@@ -579,7 +1430,7 @@ export default function Dashboard({
                                 </div>
                             </div>
 
-                            <div className="w-full max-w-sm rounded-[1.8rem] border border-zinc-200/80 bg-zinc-50/85 p-6 dark:border-white/10 dark:bg-white/[0.03]">
+                            <div className="w-full max-w-sm rounded-[1.8rem] border border-zinc-200/80 bg-zinc-50/90 p-6 dark:border-white/10 dark:bg-white/[0.03]">
                                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
                                     Account state
                                 </p>
@@ -605,7 +1456,7 @@ export default function Dashboard({
                     </section>
 
                     <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-                        <div className="rounded-[2rem] border border-zinc-200/80 bg-white/88 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+                        <div className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
                             <SectionHeader
                                 eyebrow="Focus today"
                                 title="Clear next actions"
@@ -618,7 +1469,7 @@ export default function Dashboard({
                             </div>
                         </div>
 
-                        <div className="rounded-[2rem] border border-zinc-200/80 bg-white/88 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+                        <div className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
                             <SectionHeader
                                 eyebrow="Navigation"
                                 title="Keep the workspace simple"
@@ -633,20 +1484,20 @@ export default function Dashboard({
                             <div className="mt-6 grid gap-3 sm:grid-cols-2">
                                 <Link
                                     href={route('dashboard')}
-                                    className="rounded-[1.4rem] border border-zinc-200 bg-zinc-50/85 px-4 py-4 text-sm font-semibold text-zinc-950 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
+                                    className="rounded-[1.4rem] border border-zinc-200 bg-zinc-50/90 px-4 py-4 text-sm font-semibold text-zinc-950 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
                                 >
                                     Dashboard
                                 </Link>
                                 <Link
                                     href={route('providers.index')}
-                                    className="rounded-[1.4rem] border border-zinc-200 bg-zinc-50/85 px-4 py-4 text-sm font-semibold text-zinc-950 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
+                                    className="rounded-[1.4rem] border border-zinc-200 bg-zinc-50/90 px-4 py-4 text-sm font-semibold text-zinc-950 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
                                 >
                                     Directory
                                 </Link>
                                 {(isCustomer || isProvider) && (
                                     <Link
                                         href={route('requests.index')}
-                                        className="rounded-[1.4rem] border border-zinc-200 bg-zinc-50/85 px-4 py-4 text-sm font-semibold text-zinc-950 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
+                                        className="rounded-[1.4rem] border border-zinc-200 bg-zinc-50/90 px-4 py-4 text-sm font-semibold text-zinc-950 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
                                     >
                                         {isProvider ? 'Request inbox' : 'My requests'}
                                     </Link>
@@ -654,7 +1505,7 @@ export default function Dashboard({
                                 {isCustomer && (
                                     <Link
                                         href={route('shortlist.index')}
-                                        className="rounded-[1.4rem] border border-zinc-200 bg-zinc-50/85 px-4 py-4 text-sm font-semibold text-zinc-950 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
+                                        className="rounded-[1.4rem] border border-zinc-200 bg-zinc-50/90 px-4 py-4 text-sm font-semibold text-zinc-950 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
                                     >
                                         Shortlist
                                     </Link>
@@ -662,7 +1513,7 @@ export default function Dashboard({
                                 {isProvider && (
                                     <Link
                                         href={route('profile.edit')}
-                                        className="rounded-[1.4rem] border border-zinc-200 bg-zinc-50/85 px-4 py-4 text-sm font-semibold text-zinc-950 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
+                                        className="rounded-[1.4rem] border border-zinc-200 bg-zinc-50/90 px-4 py-4 text-sm font-semibold text-zinc-950 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
                                     >
                                         Storefront settings
                                     </Link>
@@ -671,15 +1522,21 @@ export default function Dashboard({
                                     <>
                                         <Link
                                             href={route('admin.providers.index')}
-                                            className="rounded-[1.4rem] border border-zinc-200 bg-zinc-50/85 px-4 py-4 text-sm font-semibold text-zinc-950 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
+                                            className="rounded-[1.4rem] border border-zinc-200 bg-zinc-50/90 px-4 py-4 text-sm font-semibold text-zinc-950 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
                                         >
                                             Provider queue
                                         </Link>
                                         <Link
                                             href={route('admin.requests.index')}
-                                            className="rounded-[1.4rem] border border-zinc-200 bg-zinc-50/85 px-4 py-4 text-sm font-semibold text-zinc-950 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
+                                            className="rounded-[1.4rem] border border-zinc-200 bg-zinc-50/90 px-4 py-4 text-sm font-semibold text-zinc-950 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
                                         >
                                             Request oversight
+                                        </Link>
+                                        <Link
+                                            href={route('admin.reviews.index')}
+                                            className="rounded-[1.4rem] border border-zinc-200 bg-zinc-50/90 px-4 py-4 text-sm font-semibold text-zinc-950 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
+                                        >
+                                            Review moderation
                                         </Link>
                                     </>
                                 )}
@@ -689,7 +1546,7 @@ export default function Dashboard({
 
                     {isCustomer ? (
                         <section className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
-                            <div className="rounded-[2rem] border border-zinc-200/80 bg-white/88 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+                            <div className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
                                 <SectionHeader
                                     eyebrow="Recent requests"
                                     title="Continue active job threads"
@@ -715,13 +1572,13 @@ export default function Dashboard({
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/85 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
+                                    <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/90 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
                                         No requests yet. Start with one clear request and Boma will keep the provider conversation and decisions in one thread.
                                     </div>
                                 )}
                             </div>
 
-                            <div className="rounded-[2rem] border border-zinc-200/80 bg-white/88 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+                            <div className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
                                 <SectionHeader
                                     eyebrow="Shortlist"
                                     title="Saved providers"
@@ -742,7 +1599,7 @@ export default function Dashboard({
                                             <Link
                                                 key={provider.id}
                                                 href={route('providers.show', provider.id)}
-                                                className="block rounded-[1.6rem] border border-zinc-200/80 bg-zinc-50/85 p-5 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/20 dark:hover:bg-zinc-900"
+                                                className="block rounded-[1.6rem] border border-zinc-200/80 bg-zinc-50/90 p-5 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/20 dark:hover:bg-zinc-900"
                                             >
                                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                                     <div>
@@ -773,7 +1630,7 @@ export default function Dashboard({
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/85 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
+                                    <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/90 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
                                         No saved providers yet. Use the directory to compare options and keep the best fits close.
                                     </div>
                                 )}
@@ -783,7 +1640,7 @@ export default function Dashboard({
 
                     {isProvider ? (
                         <section className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
-                            <div className="rounded-[2rem] border border-zinc-200/80 bg-white/88 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+                            <div className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
                                 <SectionHeader
                                     eyebrow="Incoming work"
                                     title="Requests targeting your storefront"
@@ -809,14 +1666,14 @@ export default function Dashboard({
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/85 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
+                                    <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/90 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
                                         No customer requests have targeted this provider account yet. Keep the storefront clear so it is ready when the first request lands.
                                     </div>
                                 )}
                             </div>
 
                             <div className="space-y-6">
-                                <div className="rounded-[2rem] border border-zinc-200/80 bg-white/88 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+                                <div className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
                                     <SectionHeader
                                         eyebrow="Storefront health"
                                         title="What customers see first"
@@ -846,7 +1703,7 @@ export default function Dashboard({
                                     </div>
                                 </div>
 
-                                <div className="rounded-[2rem] border border-zinc-200/80 bg-white/88 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+                                <div className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
                                     <SectionHeader
                                         eyebrow="Recent reviews"
                                         title="Public trust from closed work"
@@ -857,7 +1714,7 @@ export default function Dashboard({
                                             {providerSummary.recentReviews.map((review) => (
                                                 <div
                                                     key={review.id}
-                                                    className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50/85 p-5 dark:border-white/10 dark:bg-white/[0.03]"
+                                                    className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50/90 p-5 dark:border-white/10 dark:bg-white/[0.03]"
                                                 >
                                                     <div className="flex flex-wrap items-center gap-2">
                                                         <span className="inline-flex rounded-full border border-zinc-950 bg-zinc-950 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white dark:border-white dark:bg-white dark:text-zinc-950">
@@ -882,7 +1739,7 @@ export default function Dashboard({
                                             ))}
                                         </div>
                                     ) : (
-                                        <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/85 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
+                                        <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/90 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
                                             No reviews have been published yet. Completed requests will start filling this section automatically.
                                         </div>
                                     )}
@@ -893,7 +1750,7 @@ export default function Dashboard({
 
                     {isAdmin ? (
                         <section className="grid gap-6 xl:grid-cols-[1.02fr_0.98fr]">
-                            <div className="rounded-[2rem] border border-zinc-200/80 bg-white/88 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+                            <div className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
                                 <SectionHeader
                                     eyebrow="Provider queue"
                                     title="Verification work waiting now"
@@ -913,7 +1770,7 @@ export default function Dashboard({
                                         {pendingProviders.map((provider) => (
                                             <div
                                                 key={provider.id}
-                                                className="rounded-[1.6rem] border border-zinc-200/80 bg-zinc-50/85 p-5 dark:border-white/10 dark:bg-white/[0.03]"
+                                                className="rounded-[1.6rem] border border-zinc-200/80 bg-zinc-50/90 p-5 dark:border-white/10 dark:bg-white/[0.03]"
                                             >
                                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                                     <div>
@@ -947,14 +1804,14 @@ export default function Dashboard({
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/85 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
+                                    <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/90 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
                                         No providers are currently waiting in the verification queue.
                                     </div>
                                 )}
                             </div>
 
                             <div className="space-y-6">
-                                <div className="rounded-[2rem] border border-zinc-200/80 bg-white/88 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+                                <div className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
                                     <SectionHeader
                                         eyebrow="Request alerts"
                                         title="Threads needing admin visibility"
@@ -966,7 +1823,7 @@ export default function Dashboard({
                                                 <Link
                                                     key={jobRequest.id}
                                                     href={route('admin.requests.index')}
-                                                    className="block rounded-[1.5rem] border border-zinc-200 bg-zinc-50/85 p-5 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/20 dark:hover:bg-zinc-900"
+                                                    className="block rounded-[1.5rem] border border-zinc-200 bg-zinc-50/90 p-5 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/20 dark:hover:bg-zinc-900"
                                                 >
                                                     <div className="flex flex-wrap items-center gap-2">
                                                         <span className="inline-flex rounded-full border border-zinc-950 bg-zinc-950 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white dark:border-white dark:bg-white dark:text-zinc-950">
@@ -991,13 +1848,13 @@ export default function Dashboard({
                                             ))}
                                         </div>
                                     ) : (
-                                        <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/85 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
+                                        <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/90 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
                                             No request alerts are active right now.
                                         </div>
                                     )}
                                 </div>
 
-                                <div className="rounded-[2rem] border border-zinc-200/80 bg-white/88 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+                                <div className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
                                     <SectionHeader
                                         eyebrow="Recent moderation"
                                         title="Latest restricted accounts"
@@ -1008,7 +1865,7 @@ export default function Dashboard({
                                             {recentModeration.map((entry) => (
                                                 <div
                                                     key={entry.id}
-                                                    className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50/85 p-5 dark:border-white/10 dark:bg-white/[0.03]"
+                                                    className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50/90 p-5 dark:border-white/10 dark:bg-white/[0.03]"
                                                 >
                                                     <div className="flex flex-wrap items-center gap-2">
                                                         <span className="inline-flex rounded-full border border-zinc-950 bg-zinc-950 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white dark:border-white dark:bg-white dark:text-zinc-950">
@@ -1037,7 +1894,7 @@ export default function Dashboard({
                                             ))}
                                         </div>
                                     ) : (
-                                        <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/85 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
+                                        <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/90 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
                                             No recent moderation actions to surface here.
                                         </div>
                                     )}

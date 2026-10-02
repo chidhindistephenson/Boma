@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\InAppNotification;
+use App\Models\ProviderVerificationDocument;
 use App\Models\ProviderVerificationEvent;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
@@ -28,17 +30,30 @@ class AdminProviderVerificationController extends Controller
             $activeStatus = 'pending';
         }
 
-        $providers = User::query()
+        $providerCollection = User::query()
             ->where('role', 'provider')
             ->with([
                 'providerProfile.reviewedBy',
-                'providerProfile.verificationDocuments',
+                'providerProfile.tradeCategories.reviewedBy',
+                'providerProfile.verificationDocuments.reviewedBy',
+                'providerProfile.verificationDocuments.replacesDocument',
                 'providerProfile.verificationEvents.actor',
             ])
             ->withCount('shortlistedByCustomers')
             ->get()
             ->when($activeStatus !== 'all', fn ($collection) => $collection
-                ->filter(fn (User $provider): bool => $provider->providerProfile?->verification_status === $activeStatus))
+                ->filter(function (User $provider) use ($activeStatus): bool {
+                    $profile = $provider->providerProfile;
+
+                    return $profile?->verification_status === $activeStatus
+                        || (bool) $profile?->tradeCategories->contains(
+                            fn ($category): bool => $category->verification_status === $activeStatus,
+                        )
+                        || (bool) $profile?->verificationDocuments->contains(
+                            fn ($document): bool => $activeStatus === 'pending'
+                                && $document->isPendingAdminReview(),
+                        );
+                }))
             ->sortByDesc(function (User $provider) use ($activeStatus): int {
                 $profile = $provider->providerProfile;
 
@@ -77,6 +92,18 @@ class AdminProviderVerificationController extends Controller
                     ]))),
                     'shortlistedByCustomersCount' => $provider->shortlisted_by_customers_count,
                     'memberSince' => $provider->created_at->toDateString(),
+                    'tradeCategories' => $profile?->tradeCategories
+                        ? $profile->tradeCategories->map(fn ($category): array => [
+                            'id' => $category->id,
+                            'tradeCategory' => $category->trade_category,
+                            'verificationStatus' => $category->verification_status,
+                            'submittedAt' => $category->submitted_at?->toDateTimeString(),
+                            'verifiedAt' => $category->verified_at?->toDateTimeString(),
+                            'reviewedAt' => $category->reviewed_at?->toDateTimeString(),
+                            'reviewedByName' => $category->reviewedBy?->name,
+                            'reviewNotes' => $category->review_notes,
+                        ])->all()
+                        : [],
                     'verificationDocuments' => $profile?->verificationDocuments
                         ? $profile->verificationDocuments->map(fn ($document): array => [
                             'id' => $document->id,
@@ -84,6 +111,13 @@ class AdminProviderVerificationController extends Controller
                             'label' => $document->label,
                             'originalName' => $document->original_name,
                             'sizeBytes' => $document->size_bytes,
+                            'verificationStatus' => $document->verification_status,
+                            'approvedAt' => $document->approved_at?->toDateTimeString(),
+                            'reviewedAt' => $document->reviewed_at?->toDateTimeString(),
+                            'reviewedByName' => $document->reviewedBy?->name,
+                            'reviewNotes' => $document->review_notes,
+                            'replacesDocumentId' => $document->replaces_document_id,
+                            'replacesOriginalName' => $document->replacesDocument?->original_name,
                             'uploadedAt' => $document->created_at->toDateTimeString(),
                         ])->all()
                         : [],
@@ -96,21 +130,43 @@ class AdminProviderVerificationController extends Controller
                     'canApprove' => $profile?->verification_status !== 'verified',
                     'canReject' => $profile?->verification_status !== 'rejected',
                 ];
-            })
-            ->all();
+            });
+
+        $perPage = 5;
+        $page = max(1, $request->integer('page', 1));
+        $providers = new LengthAwarePaginator(
+            $providerCollection->forPage($page, $perPage)->values(),
+            $providerCollection->count(),
+            $perPage,
+            $page,
+            [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ],
+        );
 
         $summary = [
             'pending' => User::query()
                 ->where('role', 'provider')
-                ->whereHas('providerProfile', fn ($query) => $query->where('verification_status', 'pending'))
+                ->whereHas('providerProfile', fn ($query) => $query
+                    ->where('verification_status', 'pending')
+                    ->orWhereHas('tradeCategories', fn ($categoryQuery) => $categoryQuery->where('verification_status', 'pending'))
+                    ->orWhereHas('verificationDocuments', fn ($documentQuery) => $documentQuery->whereIn('verification_status', [
+                        ProviderVerificationDocument::STATUS_PENDING,
+                        ProviderVerificationDocument::STATUS_PENDING_REPLACEMENT,
+                    ])))
                 ->count(),
             'verified' => User::query()
                 ->where('role', 'provider')
-                ->whereHas('providerProfile', fn ($query) => $query->where('verification_status', 'verified'))
+                ->whereHas('providerProfile', fn ($query) => $query
+                    ->where('verification_status', 'verified')
+                    ->orWhereHas('tradeCategories', fn ($categoryQuery) => $categoryQuery->where('verification_status', 'verified')))
                 ->count(),
             'rejected' => User::query()
                 ->where('role', 'provider')
-                ->whereHas('providerProfile', fn ($query) => $query->where('verification_status', 'rejected'))
+                ->whereHas('providerProfile', fn ($query) => $query
+                    ->where('verification_status', 'rejected')
+                    ->orWhereHas('tradeCategories', fn ($categoryQuery) => $categoryQuery->where('verification_status', 'rejected')))
                 ->count(),
         ];
 
@@ -161,6 +217,32 @@ class AdminProviderVerificationController extends Controller
                 'reviewed_at' => now(),
                 'reviewed_by_user_id' => $admin->id,
             ]);
+
+            $provider->providerProfile->tradeCategories()->updateOrCreate(
+                ['trade_category' => $provider->providerProfile->trade_category],
+                [
+                    'verification_status' => $isApproval ? 'verified' : 'rejected',
+                    'submitted_at' => $provider->providerProfile->verification_submitted_at ?? now(),
+                    'verified_at' => $isApproval ? now() : null,
+                    'reviewed_at' => now(),
+                    'reviewed_by_user_id' => $admin->id,
+                    'review_notes' => $validated['review_notes'] ?? null,
+                ],
+            );
+
+            if ($isApproval) {
+                $provider->providerProfile->verificationDocuments()
+                    ->whereIn('verification_status', [
+                        ProviderVerificationDocument::STATUS_PENDING,
+                        ProviderVerificationDocument::STATUS_REJECTED,
+                    ])
+                    ->update([
+                        'verification_status' => ProviderVerificationDocument::STATUS_APPROVED,
+                        'approved_at' => now(),
+                        'reviewed_at' => now(),
+                        'reviewed_by_user_id' => $admin->id,
+                    ]);
+            }
 
             ProviderVerificationEvent::record(
                 $provider->providerProfile,

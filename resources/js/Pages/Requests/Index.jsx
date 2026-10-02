@@ -44,6 +44,10 @@ function buildQuery(filters) {
         query.urgency = filters.urgency;
     }
 
+    if (filters.attention) {
+        query.attention = 1;
+    }
+
     return query;
 }
 
@@ -54,6 +58,10 @@ function attentionLabel(jobRequest, isProvider) {
 
     if (!isProvider && jobRequest.quoteNeedsResponse) {
         return 'Quote waiting on you';
+    }
+
+    if (!isProvider && jobRequest.proposalCount) {
+        return `${jobRequest.proposalCount} proposal${jobRequest.proposalCount === 1 ? '' : 's'} to compare`;
     }
 
     if (!isProvider && jobRequest.scheduleNeedsResponse) {
@@ -96,6 +104,10 @@ function activityLine(jobRequest, isProvider) {
         return `Quote ${formatAmount(jobRequest.quoteAmount)} (${formatStatus(jobRequest.quoteStatus)})`;
     }
 
+    if (!isProvider && jobRequest.proposalCount) {
+        return `${jobRequest.proposalCount} provider proposal${jobRequest.proposalCount === 1 ? '' : 's'} waiting`;
+    }
+
     if (jobRequest.hasSchedule && jobRequest.scheduledFor) {
         return `Visit ${formatStatus(jobRequest.scheduleStatus)} on ${formatDateTime(jobRequest.scheduledFor)}`;
     }
@@ -111,17 +123,146 @@ function activityLine(jobRequest, isProvider) {
     return isProvider ? 'No commercial milestone yet.' : 'Waiting for the next update.';
 }
 
+function nextActionSummary(jobRequest, isProvider) {
+    if (isProvider) {
+        if (
+            !jobRequest.hasQuote &&
+            ['targeted', 'in_conversation'].includes(jobRequest.status)
+        ) {
+            return 'Send quote or accept the request';
+        }
+
+        if (jobRequest.hasPayment && jobRequest.paymentStatus === 'submitted') {
+            return 'Confirm or query payment';
+        }
+
+        return 'Open for provider actions';
+    }
+
+    if (jobRequest.unreadCount) {
+        return 'Read the latest message';
+    }
+
+    if (jobRequest.proposalCount) {
+        return 'Compare provider proposals';
+    }
+
+    if (jobRequest.quoteNeedsResponse) {
+        return 'Accept or decline the quote';
+    }
+
+    if (jobRequest.scheduleNeedsResponse) {
+        return 'Confirm the proposed visit';
+    }
+
+    if (jobRequest.paymentNeedsUpdate) {
+        return 'Update payment details';
+    }
+
+    if (jobRequest.canReview && !jobRequest.hasReview) {
+        return 'Leave a review';
+    }
+
+    if (jobRequest.status === 'closed') {
+        return 'Closed';
+    }
+
+    return 'Waiting for the next provider update';
+}
+
+function customerMilestones(jobRequest) {
+    return [
+        {
+            label: 'Request',
+            complete: !['open', 'targeted', 'in_conversation'].includes(
+                jobRequest.status,
+            ),
+            active: ['open', 'targeted', 'in_conversation'].includes(
+                jobRequest.status,
+            ),
+        },
+        {
+            label: 'Quote',
+            complete: jobRequest.quoteStatus === 'accepted',
+            active: jobRequest.quoteStatus === 'pending',
+        },
+        {
+            label: 'Visit',
+            complete: ['confirmed', 'completed'].includes(
+                jobRequest.scheduleStatus,
+            ),
+            active: jobRequest.scheduleStatus === 'proposed',
+        },
+        {
+            label: 'Payment',
+            complete: jobRequest.paymentStatus === 'confirmed',
+            active: ['submitted', 'revision_requested'].includes(
+                jobRequest.paymentStatus,
+            ),
+        },
+        {
+            label: 'Review',
+            complete: jobRequest.hasReview,
+            active: jobRequest.canReview && !jobRequest.hasReview,
+        },
+    ];
+}
+
+function milestoneClass(milestone) {
+    if (milestone.complete) {
+        return 'border-zinc-950 bg-zinc-950 text-white dark:border-white dark:bg-white dark:text-zinc-950';
+    }
+
+    if (milestone.active) {
+        return 'border-zinc-400 bg-zinc-100 text-zinc-950 dark:border-white/30 dark:bg-white/10 dark:text-white';
+    }
+
+    return 'border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-500';
+}
+
+function statIconPath(label) {
+    const normalized = String(label).toLowerCase();
+
+    if (normalized.includes('active')) {
+        return 'M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z';
+    }
+
+    if (normalized.includes('unread') || normalized.includes('message')) {
+        return 'M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 21.75a5.972 5.972 0 0 1-.474-3.255A8.25 8.25 0 0 1 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z';
+    }
+
+    if (normalized.includes('attention') || normalized.includes('pending')) {
+        return 'M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z';
+    }
+
+    return 'M9 12h6m-6 4h6m2.25 5H6.75A2.25 2.25 0 0 1 4.5 18.75V5.25A2.25 2.25 0 0 1 6.75 3h7.5L19.5 8.25v10.5A2.25 2.25 0 0 1 17.25 21Z';
+}
+
 function StatCard({ label, value, helper }) {
     return (
-        <div className="rounded-[1.5rem] border border-zinc-200/80 bg-zinc-50/85 p-5 dark:border-white/10 dark:bg-white/[0.03]">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
-                {label}
-            </p>
-            <p className="mt-3 font-display text-3xl font-semibold text-zinc-950 dark:text-white">
-                {value}
-            </p>
+        <div className="boma-stat-card">
+            <div className="flex items-center gap-3">
+                <span className="boma-stat-card-icon">
+                    <svg
+                        aria-hidden="true"
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                    >
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d={statIconPath(label)}
+                        />
+                    </svg>
+                </span>
+                <p className="boma-stat-card-title">{label}</p>
+            </div>
+            <p className="boma-stat-card-value mt-5">{value}</p>
             {helper ? (
-                <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
                     {helper}
                 </p>
             ) : null}
@@ -154,6 +295,7 @@ export default function Index({
         q: filters.q,
         status: filters.status,
         urgency: filters.urgency,
+        attention: Boolean(filters.attention),
     });
 
     useEffect(() => {
@@ -161,8 +303,9 @@ export default function Index({
             q: filters.q,
             status: filters.status,
             urgency: filters.urgency,
+            attention: Boolean(filters.attention),
         });
-    }, [filters.q, filters.status, filters.urgency]);
+    }, [filters.attention, filters.q, filters.status, filters.urgency]);
 
     const submit = (event) => {
         event.preventDefault();
@@ -174,7 +317,7 @@ export default function Index({
     };
 
     const resetFilters = () => {
-        const defaults = { q: '', status: '', urgency: '' };
+        const defaults = { q: '', status: '', urgency: '', attention: false };
 
         setForm(defaults);
 
@@ -187,6 +330,7 @@ export default function Index({
     const needsAttention = isProvider
         ? summary.pendingRequests + summary.pendingQuotes + summary.pendingPayments
         : summary.pendingReviews +
+          summary.pendingProposals +
           summary.pendingQuotes +
           summary.pendingSchedules +
           summary.paymentsNeedingUpdate;
@@ -231,7 +375,7 @@ export default function Index({
 
             <div className="py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <section className="rounded-[2.2rem] border border-zinc-200/80 bg-white/88 p-8 shadow-[0_24px_70px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_24px_70px_rgba(0,0,0,0.38)]">
+                    <section className="rounded-[2.2rem] border border-zinc-200/80 bg-white/90 p-8 shadow-[0_24px_70px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_24px_70px_rgba(0,0,0,0.38)]">
                         <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
                             <div className="max-w-3xl">
                                 <p className="text-sm font-semibold uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-400">
@@ -265,7 +409,7 @@ export default function Index({
                         </div>
                     </section>
 
-                    <section className="rounded-[2rem] border border-zinc-200/80 bg-white/88 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+                    <section className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                             <div>
                                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-400">
@@ -286,7 +430,7 @@ export default function Index({
 
                         <form
                             onSubmit={submit}
-                            className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_220px_220px_auto]"
+                            className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_220px_220px_auto_auto]"
                         >
                             <input
                                 type="search"
@@ -338,6 +482,23 @@ export default function Index({
                             </select>
 
                             <button
+                                type="button"
+                                onClick={() =>
+                                    setForm((current) => ({
+                                        ...current,
+                                        attention: !current.attention,
+                                    }))
+                                }
+                                className={`rounded-full px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] transition ${
+                                    form.attention
+                                        ? 'bg-zinc-950 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200'
+                                        : 'border border-zinc-300 bg-white text-zinc-950 hover:border-zinc-400 hover:bg-zinc-50 dark:border-white/10 dark:bg-zinc-950 dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900'
+                                }`}
+                            >
+                                Needs action
+                            </button>
+
+                            <button
                                 type="submit"
                                 className="rounded-full bg-zinc-950 px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
                             >
@@ -354,12 +515,19 @@ export default function Index({
                                     const participant = isProvider
                                         ? jobRequest.customerName
                                         : jobRequest.providerLabel;
+                                    const nextAction = nextActionSummary(
+                                        jobRequest,
+                                        isProvider,
+                                    );
+                                    const milestones = isProvider
+                                        ? []
+                                        : customerMilestones(jobRequest);
 
                                     return (
                                         <Link
                                             key={jobRequest.id}
                                             href={route('requests.show', jobRequest.id)}
-                                            className="block rounded-[2rem] border border-zinc-200/80 bg-white/88 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)] dark:hover:border-white/20 dark:hover:bg-zinc-900"
+                                            className="block rounded-[2rem] border border-zinc-200/80 bg-white/90 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)] dark:hover:border-white/20 dark:hover:bg-zinc-900"
                                         >
                                             <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                                                 <div className="min-w-0">
@@ -399,12 +567,39 @@ export default function Index({
                                                     </div>
                                                 </div>
 
-                                                <div className="shrink-0">
-                                                    <span className="inline-flex rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-950 dark:border-white/10 dark:bg-zinc-950 dark:text-white">
-                                                        Open thread
+                                                <div className="shrink-0 rounded-[1.5rem] border border-zinc-200 bg-zinc-50/90 p-4 text-left dark:border-white/10 dark:bg-white/[0.03] xl:w-72">
+                                                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+                                                        Next action
+                                                    </p>
+                                                    <p className="mt-2 font-display text-xl font-semibold text-zinc-950 dark:text-white">
+                                                        {nextAction}
+                                                    </p>
+                                                    <span className="mt-4 inline-flex rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-950 dark:border-white/10 dark:bg-zinc-950 dark:text-white">
+                                                        Open request
                                                     </span>
                                                 </div>
                                             </div>
+
+                                            {!isProvider ? (
+                                                <div className="mt-5 grid gap-2 sm:grid-cols-5">
+                                                    {milestones.map((milestone, index) => (
+                                                        <div
+                                                            key={milestone.label}
+                                                            className={`rounded-2xl border px-3 py-3 ${milestoneClass(milestone)}`}
+                                                        >
+                                                            <p className="text-[9px] font-semibold uppercase tracking-[0.2em] opacity-70">
+                                                                {String(index + 1).padStart(
+                                                                    2,
+                                                                    '0',
+                                                                )}
+                                                            </p>
+                                                            <p className="mt-1 text-sm font-semibold">
+                                                                {milestone.label}
+                                                            </p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : null}
 
                                             <div className="mt-5 grid gap-4 text-sm sm:grid-cols-3">
                                                 <div>
@@ -438,7 +633,7 @@ export default function Index({
                                 })}
                             </section>
 
-                            <div className="flex flex-col gap-4 rounded-[2rem] border border-zinc-200/80 bg-white/88 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.06)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)] sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex flex-col gap-4 rounded-[2rem] border border-zinc-200/80 bg-white/90 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.06)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)] sm:flex-row sm:items-center sm:justify-between">
                                 <p className="text-sm text-zinc-600 dark:text-zinc-400">
                                     Page {jobRequests.current_page} of {jobRequests.last_page}
                                 </p>
@@ -475,7 +670,7 @@ export default function Index({
                             </div>
                         </>
                     ) : (
-                        <div className="rounded-[2rem] border border-dashed border-zinc-300 bg-white/88 p-10 text-center shadow-[0_18px_50px_rgba(0,0,0,0.06)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+                        <div className="rounded-[2rem] border border-dashed border-zinc-300 bg-white/90 p-10 text-center shadow-[0_18px_50px_rgba(0,0,0,0.06)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
                             <h3 className="font-display text-3xl font-semibold text-zinc-950 dark:text-white">
                                 No requests match that filter.
                             </h3>

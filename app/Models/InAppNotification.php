@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Events\InAppNotificationCreated;
+use App\Notifications\BomaActivityNotification;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -40,6 +42,36 @@ class InAppNotification extends Model
         $this->forceFill(['read_at' => now()])->saveQuietly();
     }
 
+    public function category(): string
+    {
+        return self::categoryForType($this->type);
+    }
+
+    public static function categoryForType(string $type): string
+    {
+        if (str_contains($type, 'message')) {
+            return 'messages';
+        }
+
+        if (str_contains($type, 'payment') || str_contains($type, 'payout')) {
+            return 'payments';
+        }
+
+        if (str_contains($type, 'review')) {
+            return 'reviews';
+        }
+
+        if (
+            str_contains($type, 'verification')
+            || str_contains($type, 'account')
+            || str_contains($type, 'conversation_')
+        ) {
+            return 'account';
+        }
+
+        return 'requests';
+    }
+
     public static function notifyUser(
         User $user,
         string $type,
@@ -49,7 +81,7 @@ class InAppNotification extends Model
         ?string $actionLabel = null,
         array $data = [],
     ): self {
-        return self::create([
+        $notification = self::create([
             'user_id' => $user->id,
             'type' => $type,
             'title' => $title,
@@ -58,5 +90,14 @@ class InAppNotification extends Model
             'action_label' => $actionLabel,
             'data' => $data,
         ]);
+
+        broadcast(new InAppNotificationCreated($notification))->toOthers();
+
+        $preference = $user->notificationPreference()->firstOrCreate();
+        if ($preference->allowsEmailFor($type)) {
+            $user->notify(new BomaActivityNotification($notification));
+        }
+
+        return $notification;
     }
 }

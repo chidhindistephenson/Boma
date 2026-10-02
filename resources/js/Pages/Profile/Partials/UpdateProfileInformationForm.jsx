@@ -1,17 +1,19 @@
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
-import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import { Transition } from '@headlessui/react';
 import { Link, useForm, usePage } from '@inertiajs/react';
+import { useState } from 'react';
 
 export default function UpdateProfileInformation({
+    formId,
     mustVerifyEmail,
     status,
     tradeCategories,
     requestUrgencyOptions,
     availabilityOptions,
     responseTimeOptions,
+    section = 'profile',
     className = '',
 }) {
     const user = usePage().props.auth.user;
@@ -19,14 +21,18 @@ export default function UpdateProfileInformation({
     const isProvider = user.role === 'provider';
     const isVerifiedProvider =
         user.providerProfile?.verificationStatus === 'verified';
+    const [locationStatus, setLocationStatus] = useState('');
 
     const { data, setData, patch, errors, processing, recentlySuccessful } =
         useForm({
+            section,
             name: user.name,
             email: user.email,
             phone: user.phone ?? '',
             city: user.city ?? '',
             area: user.area ?? '',
+            latitude: user.latitude ?? '',
+            longitude: user.longitude ?? '',
             preferred_radius_km:
                 user.customerProfile?.preferredRadiusKm ??
                 25,
@@ -49,27 +55,70 @@ export default function UpdateProfileInformation({
             verification_notes: user.providerProfile?.verificationNotes ?? '',
         });
 
+    const captureCurrentLocation = () => {
+        if (!navigator.geolocation) {
+            setLocationStatus('Location access is not supported by this browser.');
+            return;
+        }
+
+        setLocationStatus('Finding your location...');
+
+        navigator.geolocation.getCurrentPosition(
+            ({ coords }) => {
+                setData((current) => ({
+                    ...current,
+                    latitude: coords.latitude.toFixed(7),
+                    longitude: coords.longitude.toFixed(7),
+                }));
+                setLocationStatus('Location captured. Save changes to keep it.');
+            },
+            () => {
+                setLocationStatus(
+                    'Location could not be captured. Allow location access or enter the coordinates manually.',
+                );
+            },
+            {
+                enableHighAccuracy: true,
+                maximumAge: 60000,
+                timeout: 12000,
+            },
+        );
+    };
+
     const submit = (e) => {
         e.preventDefault();
 
         patch(route('profile.update'));
     };
 
+    const isPersonalSection = section === 'profile';
+    const isRoleSection = section === 'preferences';
+    const heading = isPersonalSection
+        ? 'Personal information'
+        : isProvider
+          ? 'Business profile'
+          : 'Service preferences';
+    const description = isPersonalSection
+        ? 'Keep your contact details and location accurate.'
+        : isProvider
+          ? 'Control the information customers see on your public storefront.'
+          : 'Set defaults that make finding and requesting help faster.';
+
     return (
         <section className={className}>
-            <header>
-                <h2 className="font-display text-2xl font-semibold text-zinc-950 dark:text-white">
-                    Profile information
+            <header className="border-b border-zinc-200 pb-5 dark:border-white/10">
+                <h2 className="font-display text-xl font-semibold text-zinc-950 dark:text-white">
+                    {heading}
                 </h2>
 
-                <p className="mt-2 text-sm leading-7 text-zinc-600 dark:text-zinc-400">
-                    Keep your contact details and public-facing account information
-                    current.
+                <p className="mt-1 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+                    {description}
                 </p>
             </header>
 
-            <form onSubmit={submit} className="mt-6 space-y-6">
-                <div className="grid gap-5 md:grid-cols-2">
+            <form id={formId} onSubmit={submit} className="mt-6 space-y-7">
+                {isPersonalSection ? (
+                    <div className="grid gap-5 md:grid-cols-2">
                     <div>
                         <InputLabel htmlFor="name" value="Full name" />
 
@@ -143,18 +192,96 @@ export default function UpdateProfileInformation({
 
                         <InputError className="mt-2" message={errors.area} />
                     </div>
-                </div>
 
-                {isCustomer && (
-                    <div className="rounded-[1.75rem] border border-zinc-200 bg-zinc-50/85 p-6 dark:border-white/10 dark:bg-white/[0.03]">
+                    <div className="border border-zinc-200 bg-zinc-50 p-5 dark:border-white/10 dark:bg-white/[0.035] md:col-span-2">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                                <p className="text-sm font-semibold text-zinc-950 dark:text-white">
+                                    Map location
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={captureCurrentLocation}
+                                className="shrink-0 bg-zinc-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
+                            >
+                                Use my location
+                            </button>
+                        </div>
+
+                        <div className="mt-5 grid gap-5 sm:grid-cols-2">
+                            <div>
+                                <InputLabel htmlFor="latitude" value="Latitude" />
+                                <TextInput
+                                    id="latitude"
+                                    type="number"
+                                    step="any"
+                                    min="-90"
+                                    max="90"
+                                    className="mt-1 block w-full"
+                                    value={data.latitude}
+                                    onChange={(e) =>
+                                        setData('latitude', e.target.value)
+                                    }
+                                    placeholder="-17.824858"
+                                />
+                                <InputError
+                                    className="mt-2"
+                                    message={errors.latitude}
+                                />
+                            </div>
+
+                            <div>
+                                <InputLabel htmlFor="longitude" value="Longitude" />
+                                <TextInput
+                                    id="longitude"
+                                    type="number"
+                                    step="any"
+                                    min="-180"
+                                    max="180"
+                                    className="mt-1 block w-full"
+                                    value={data.longitude}
+                                    onChange={(e) =>
+                                        setData('longitude', e.target.value)
+                                    }
+                                    placeholder="31.053028"
+                                />
+                                <InputError
+                                    className="mt-2"
+                                    message={errors.longitude}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="mt-4 flex flex-col gap-3 text-xs text-zinc-500 dark:text-zinc-400 sm:flex-row sm:items-center sm:justify-between">
+                            <p>{locationStatus || 'You may also enter GPS coordinates manually.'}</p>
+                            {data.latitude || data.longitude ? (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setData((current) => ({
+                                            ...current,
+                                            latitude: '',
+                                            longitude: '',
+                                        }));
+                                        setLocationStatus('Map location cleared.');
+                                    }}
+                                    className="self-start font-semibold text-zinc-700 underline decoration-zinc-300 underline-offset-4 dark:text-zinc-200 dark:decoration-zinc-600"
+                                >
+                                    Clear coordinates
+                                </button>
+                            ) : null}
+                        </div>
+                    </div>
+                    </div>
+                ) : null}
+
+                {isRoleSection && isCustomer && (
+                    <div className="border border-zinc-200 bg-zinc-50 p-6 dark:border-white/10 dark:bg-white/[0.035]">
                         <div className="mb-5">
-                            <h3 className="font-display text-xl font-semibold text-zinc-950 dark:text-white">
+                            <h3 className="font-display text-lg font-semibold text-zinc-950 dark:text-white">
                                 Customer preferences
                             </h3>
-                            <p className="mt-2 text-sm leading-7 text-zinc-600 dark:text-zinc-400">
-                                Save the defaults that should shape your shortlist and
-                                job request flow.
-                            </p>
                         </div>
 
                         <div className="grid gap-5 md:grid-cols-2">
@@ -199,7 +326,7 @@ export default function UpdateProfileInformation({
                                             e.target.value,
                                         )
                                     }
-                                    className="mt-1 block w-full rounded-xl border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 shadow-sm focus:border-zinc-500 focus:ring-zinc-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:focus:border-zinc-400 dark:focus:ring-zinc-400"
+                                    className="mt-1 block w-full border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 shadow-sm focus:border-zinc-500 focus:ring-zinc-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:focus:border-zinc-400 dark:focus:ring-zinc-400"
                                 >
                                     <option value="">Choose when needed</option>
                                     {tradeCategories.map((category) => (
@@ -227,7 +354,7 @@ export default function UpdateProfileInformation({
                                     onChange={(e) =>
                                         setData('default_urgency', e.target.value)
                                     }
-                                    className="mt-1 block w-full rounded-xl border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 shadow-sm focus:border-zinc-500 focus:ring-zinc-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:focus:border-zinc-400 dark:focus:ring-zinc-400"
+                                    className="mt-1 block w-full border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 shadow-sm focus:border-zinc-500 focus:ring-zinc-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:focus:border-zinc-400 dark:focus:ring-zinc-400"
                                 >
                                     {Object.entries(requestUrgencyOptions).map(
                                         ([value, label]) => (
@@ -311,14 +438,9 @@ export default function UpdateProfileInformation({
                                     onChange={(e) =>
                                         setData('location_notes', e.target.value)
                                     }
-                                    className="mt-1 block w-full rounded-xl border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 shadow-sm focus:border-zinc-500 focus:ring-zinc-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:focus:border-zinc-400 dark:focus:ring-zinc-400"
+                                    className="mt-1 block w-full border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 shadow-sm focus:border-zinc-500 focus:ring-zinc-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:focus:border-zinc-400 dark:focus:ring-zinc-400"
                                     placeholder="Gate code, landmark, parking notes, best call-ahead timing, or anything providers should know before arriving."
                                 />
-
-                                <p className="mt-2 text-sm leading-7 text-zinc-600 dark:text-zinc-400">
-                                    These notes prefill new job requests so you do not
-                                    need to repeat access details every time.
-                                </p>
 
                                 <InputError
                                     className="mt-2"
@@ -329,16 +451,12 @@ export default function UpdateProfileInformation({
                     </div>
                 )}
 
-                {isProvider && (
-                    <div className="rounded-[1.75rem] border border-zinc-200 bg-zinc-50/85 p-6 dark:border-white/10 dark:bg-white/[0.03]">
+                {isRoleSection && isProvider && (
+                    <div className="border border-zinc-200 bg-zinc-50 p-6 dark:border-white/10 dark:bg-white/[0.035]">
                         <div className="mb-5">
-                            <h3 className="font-display text-xl font-semibold text-zinc-950 dark:text-white">
+                            <h3 className="font-display text-lg font-semibold text-zinc-950 dark:text-white">
                                 Provider listing
                             </h3>
-                            <p className="mt-2 text-sm leading-7 text-zinc-600 dark:text-zinc-400">
-                                These fields power your public profile once your account
-                                is verified.
-                            </p>
                         </div>
 
                         <div className="grid gap-5 md:grid-cols-2">
@@ -392,7 +510,7 @@ export default function UpdateProfileInformation({
                                     onChange={(e) =>
                                         setData('trade_category', e.target.value)
                                     }
-                                    className="mt-1 block w-full rounded-xl border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 shadow-sm focus:border-zinc-500 focus:ring-zinc-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:focus:border-zinc-400 dark:focus:ring-zinc-400"
+                                    className="mt-1 block w-full border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 shadow-sm focus:border-zinc-500 focus:ring-zinc-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:focus:border-zinc-400 dark:focus:ring-zinc-400"
                                     required
                                 >
                                     <option value="">Select a trade</option>
@@ -424,7 +542,7 @@ export default function UpdateProfileInformation({
                                             e.target.value,
                                         )
                                     }
-                                    className="mt-1 block w-full rounded-xl border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 shadow-sm focus:border-zinc-500 focus:ring-zinc-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:focus:border-zinc-400 dark:focus:ring-zinc-400"
+                                    className="mt-1 block w-full border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 shadow-sm focus:border-zinc-500 focus:ring-zinc-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:focus:border-zinc-400 dark:focus:ring-zinc-400"
                                     required
                                 >
                                     {availabilityOptions.map((option) => (
@@ -448,7 +566,7 @@ export default function UpdateProfileInformation({
                                     rows={4}
                                     value={data.bio}
                                     onChange={(e) => setData('bio', e.target.value)}
-                                    className="mt-1 block w-full rounded-xl border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 shadow-sm focus:border-zinc-500 focus:ring-zinc-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:focus:border-zinc-400 dark:focus:ring-zinc-400"
+                                    className="mt-1 block w-full border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 shadow-sm focus:border-zinc-500 focus:ring-zinc-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:focus:border-zinc-400 dark:focus:ring-zinc-400"
                                     required
                                 />
 
@@ -549,7 +667,7 @@ export default function UpdateProfileInformation({
                                             e.target.value,
                                         )
                                     }
-                                    className="mt-1 block w-full rounded-xl border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 shadow-sm focus:border-zinc-500 focus:ring-zinc-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:focus:border-zinc-400 dark:focus:ring-zinc-400"
+                                    className="mt-1 block w-full border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 shadow-sm focus:border-zinc-500 focus:ring-zinc-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:focus:border-zinc-400 dark:focus:ring-zinc-400"
                                 >
                                     <option value="">No response promise yet</option>
                                     {responseTimeOptions.map((option) => (
@@ -582,15 +700,9 @@ export default function UpdateProfileInformation({
                                             e.target.value,
                                         )
                                     }
-                                    className="mt-1 block w-full rounded-xl border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 shadow-sm focus:border-zinc-500 focus:ring-zinc-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:focus:border-zinc-400 dark:focus:ring-zinc-400"
+                                    className="mt-1 block w-full border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 shadow-sm focus:border-zinc-500 focus:ring-zinc-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:focus:border-zinc-400 dark:focus:ring-zinc-400"
                                     placeholder="Add the business registration, years of experience, licenses, or any trust signals the admin should review."
                                 />
-
-                                <p className="mt-2 text-sm leading-7 text-zinc-600 dark:text-zinc-400">
-                                    {isVerifiedProvider
-                                        ? 'This note is locked after approval so the verification audit trail stays stable.'
-                                        : 'This note is private. It helps the admin approve or reject your listing review faster.'}
-                                </p>
 
                                 <InputError
                                     className="mt-2"
@@ -601,7 +713,7 @@ export default function UpdateProfileInformation({
                     </div>
                 )}
 
-                {mustVerifyEmail && user.email_verified_at === null && (
+                {isPersonalSection && mustVerifyEmail && user.email_verified_at === null && (
                     <div>
                         <p className="mt-2 text-sm text-zinc-950 dark:text-white">
                             Your email address is unverified.
@@ -624,23 +736,16 @@ export default function UpdateProfileInformation({
                     </div>
                 )}
 
-                <div className="flex items-center gap-4">
-                    <PrimaryButton
-                        disabled={processing}
-                        className="rounded-full bg-zinc-950 px-5 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
-                    >
-                        Save changes
-                    </PrimaryButton>
-
+                <div className="min-h-6">
                     <Transition
-                        show={recentlySuccessful}
+                        show={recentlySuccessful || processing}
                         enter="transition ease-in-out"
                         enterFrom="opacity-0"
                         leave="transition ease-in-out"
                         leaveTo="opacity-0"
                     >
                         <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                            Saved.
+                            {processing ? 'Updating...' : 'Updated.'}
                         </p>
                     </Transition>
                 </div>

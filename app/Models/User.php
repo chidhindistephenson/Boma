@@ -2,17 +2,18 @@
 
 namespace App\Models;
 
-use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -35,8 +36,13 @@ class User extends Authenticatable implements MustVerifyEmail
         'suspension_reason',
         'city',
         'area',
+        'latitude',
+        'longitude',
         'profile_photo_path',
         'password',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
+        'two_factor_confirmed_at',
     ];
 
     /**
@@ -47,6 +53,8 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $hidden = [
         'password',
         'remember_token',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
     /**
@@ -59,7 +67,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'suspended_at' => 'datetime',
+            'latitude' => 'float',
+            'longitude' => 'float',
             'password' => 'hashed',
+            'two_factor_recovery_codes' => 'array',
+            'two_factor_confirmed_at' => 'datetime',
         ];
     }
 
@@ -108,6 +120,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(JobRequest::class, 'provider_id');
     }
 
+    public function jobRequestProposals(): HasMany
+    {
+        return $this->hasMany(JobRequestProposal::class, 'provider_id');
+    }
+
     public function providerServices(): HasManyThrough
     {
         return $this->hasManyThrough(
@@ -131,6 +148,84 @@ class User extends Authenticatable implements MustVerifyEmail
             ->latest('id');
     }
 
+    public function notificationPreference(): HasOne
+    {
+        return $this->hasOne(NotificationPreference::class);
+    }
+
+    public function wallet(): HasOne
+    {
+        return $this->hasOne(UserWallet::class);
+    }
+
+    public function wallets(): HasMany
+    {
+        return $this->hasMany(UserWallet::class);
+    }
+
+    public function walletTransactions(): HasMany
+    {
+        return $this->hasMany(WalletTransaction::class);
+    }
+
+    public function walletDepositRequests(): HasMany
+    {
+        return $this->hasMany(WalletDepositRequest::class);
+    }
+
+    public function apiRefreshTokens(): HasMany
+    {
+        return $this->hasMany(ApiRefreshToken::class);
+    }
+
+    public function payoutRequests(): HasMany
+    {
+        return $this->hasMany(PayoutRequest::class, 'provider_id');
+    }
+
+    public function paymentMethods(): HasMany
+    {
+        return $this->hasMany(UserPaymentMethod::class);
+    }
+
+    public function socialAccounts(): HasMany
+    {
+        return $this->hasMany(UserSocialAccount::class);
+    }
+
+    public function conversationReports(): HasMany
+    {
+        return $this->hasMany(JobRequestConversationReport::class, 'reporter_id');
+    }
+
+    public function unreadConversationMessageCount(): int
+    {
+        if (! $this->isCustomer() && ! $this->isProvider()) {
+            return 0;
+        }
+
+        $participantColumn = $this->isCustomer() ? 'customer_id' : 'provider_id';
+        $lastReadColumn = $this->isCustomer()
+            ? 'customer_last_read_at'
+            : 'provider_last_read_at';
+
+        return DB::table('job_request_messages')
+            ->join('job_requests', 'job_requests.id', '=', 'job_request_messages.job_request_id')
+            ->where("job_requests.{$participantColumn}", $this->id)
+            ->whereNull('job_requests.chat_removed_at')
+            ->where('job_request_messages.sender_id', '!=', $this->id)
+            ->where(function ($query) use ($lastReadColumn): void {
+                $query
+                    ->whereNull("job_requests.{$lastReadColumn}")
+                    ->orWhereColumn(
+                        'job_request_messages.created_at',
+                        '>',
+                        "job_requests.{$lastReadColumn}",
+                    );
+            })
+            ->count();
+    }
+
     public function writtenProviderReviews(): HasMany
     {
         return $this->hasMany(ProviderReview::class, 'customer_id');
@@ -139,6 +234,7 @@ class User extends Authenticatable implements MustVerifyEmail
     public function receivedProviderReviews(): HasMany
     {
         return $this->hasMany(ProviderReview::class, 'provider_id')
+            ->published()
             ->latest('id');
     }
 
@@ -160,6 +256,25 @@ class User extends Authenticatable implements MustVerifyEmail
     public function isSuspended(): bool
     {
         return $this->suspended_at !== null;
+    }
+
+    public function hasTwoFactorEnabled(): bool
+    {
+        return $this->two_factor_secret !== null && $this->two_factor_confirmed_at !== null;
+    }
+
+    public function requiresTwoFactor(): bool
+    {
+        return $this->isAdmin() || $this->hasTwoFactorEnabled();
+    }
+
+    public function profilePhotoUrl(): ?string
+    {
+        if (! $this->profile_photo_path) {
+            return null;
+        }
+
+        return route('users.avatar', ['user' => $this->id, 'v' => $this->updated_at?->timestamp]);
     }
 
     public function scopeDirectoryVisible(Builder $query, bool $verifiedOnly = false): void
@@ -196,5 +311,36 @@ class User extends Authenticatable implements MustVerifyEmail
         }
 
         return ! $verifiedOnly || $this->providerProfile->verification_status === 'verified';
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function verifiedTradeCategoryNames(): array
+    {
+        if (! $this->providerProfile) {
+            return [];
+        }
+
+        $categories = $this->providerProfile->relationLoaded('verifiedTradeCategories')
+            ? $this->providerProfile->verifiedTradeCategories
+            : $this->providerProfile->verifiedTradeCategories()->get();
+
+        $names = $categories
+            ->pluck('trade_category')
+            ->filter()
+            ->values()
+            ->all();
+
+        if ($names === [] && $this->providerProfile->verification_status === 'verified') {
+            return [$this->providerProfile->trade_category];
+        }
+
+        return $names;
+    }
+
+    public function hasVerifiedTradeCategory(string $tradeCategory): bool
+    {
+        return in_array($tradeCategory, $this->verifiedTradeCategoryNames(), true);
     }
 }

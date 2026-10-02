@@ -32,6 +32,7 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
 
         $request->session()->regenerate();
+        $request->session()->forget('auth.two_factor_passed');
 
         return redirect()->intended(route('dashboard', absolute: false));
     }

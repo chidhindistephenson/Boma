@@ -77,8 +77,63 @@ test('customer can render a provider-targeted request creation page', function (
     $response->assertOk();
     $response->assertInertia(fn (Assert $page) => $page
         ->component('Requests/Create')
+        ->where('lockedProvider', true)
+        ->where('providers.0.tradeCategories.0', 'Electrical')
         ->where('defaultValues.providerId', $provider->id)
         ->where('defaultValues.tradeCategory', 'Electrical'));
+});
+
+test('provider-targeted request defaults to the provider trade over customer defaults', function () {
+    $customer = User::factory()->create();
+    $customer->customerProfile()->update([
+        'default_trade_category' => 'Electrical',
+    ]);
+    $provider = createRequestProvider([], [
+        'business_name' => 'Great Wall Coatings',
+        'trade_category' => 'Painting',
+    ]);
+
+    $response = $this->actingAs($customer)->get(
+        route('providers.requests.create', $provider),
+    );
+
+    $response->assertOk();
+    $response->assertInertia(fn (Assert $page) => $page
+        ->component('Requests/Create')
+        ->where('lockedProvider', true)
+        ->where('defaultValues.providerId', $provider->id)
+        ->where('defaultValues.tradeCategory', 'Painting')
+        ->where('providers.0.tradeCategories.0', 'Painting'));
+});
+
+test('customer cannot create a targeted request for a trade the provider does not offer', function () {
+    $customer = User::factory()->create();
+    $provider = createRequestProvider([], [
+        'business_name' => 'Great Wall Coatings',
+        'trade_category' => 'Painting',
+    ]);
+
+    $response = $this->actingAs($customer)->post(route('requests.store'), [
+        'provider_id' => $provider->id,
+        'trade_category' => 'Electrical',
+        'title' => 'Kitchen rewiring support needed',
+        'description' => 'Need a qualified electrician to inspect and rewire a damaged kitchen circuit.',
+        'urgency' => 'urgent',
+        'preferred_date' => now()->addDays(2)->toDateString(),
+        'budget_min' => 80,
+        'budget_max' => 150,
+        'city' => 'Harare',
+        'area' => 'Avondale',
+    ]);
+
+    $response->assertSessionHasErrors('trade_category');
+
+    $this->assertDatabaseMissing('job_requests', [
+        'customer_id' => $customer->id,
+        'provider_id' => $provider->id,
+        'trade_category' => 'Electrical',
+        'title' => 'Kitchen rewiring support needed',
+    ]);
 });
 
 test('customer can create a targeted job request', function () {
@@ -91,6 +146,7 @@ test('customer can create a targeted job request', function () {
         'title' => 'Kitchen rewiring support needed',
         'description' => 'Need a qualified electrician to inspect and rewire a damaged kitchen circuit.',
         'urgency' => 'urgent',
+        'preferred_date' => now()->addDays(2)->toDateString(),
         'budget_min' => 80,
         'budget_max' => 150,
         'city' => 'Harare',
@@ -119,6 +175,7 @@ test('customer can create a job request with saved access notes', function () {
         'title' => 'Need a hallway rewiring assessment',
         'description' => 'Looking for a provider to inspect and quote a hallway rewiring job.',
         'urgency' => 'this_week',
+        'preferred_date' => now()->addDays(3)->toDateString(),
         'budget_min' => 100,
         'budget_max' => 240,
         'city' => 'Harare',
@@ -414,16 +471,46 @@ test('customer can browse the request workspace with filters', function () {
         'status' => 'open',
     ]);
 
+    $attentionRequest = JobRequest::create([
+        'customer_id' => $customer->id,
+        'provider_id' => $provider->id,
+        'trade_category' => 'Electrical',
+        'title' => 'Quote approval needed',
+        'description' => 'Need to approve the provider quote for a light repair.',
+        'urgency' => 'flexible',
+        'city' => 'Harare',
+        'area' => 'Mount Pleasant',
+        'status' => 'in_conversation',
+    ]);
+
+    $attentionRequest->quote()->create([
+        'provider_id' => $provider->id,
+        'amount' => 95,
+        'timeline_days' => 1,
+        'summary' => 'Replace fittings and test the circuit.',
+        'status' => 'pending',
+    ]);
+
     $this->actingAs($customer)
         ->get(route('requests.index', ['status' => 'accepted']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('Requests/Index')
             ->where('filters.status', 'accepted')
-            ->where('summary.total', 2)
-            ->where('summary.active', 2)
+            ->where('summary.total', 3)
+            ->where('summary.active', 3)
             ->has('jobRequests.data', 1)
             ->where('jobRequests.data.0.title', 'Accepted generator wiring check'));
+
+    $this->actingAs($customer)
+        ->get(route('requests.index', ['attention' => 1]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Requests/Index')
+            ->where('filters.attention', true)
+            ->has('jobRequests.data', 1)
+            ->where('jobRequests.data.0.title', 'Quote approval needed')
+            ->where('jobRequests.data.0.quoteNeedsResponse', true));
 });
 
 test('provider can browse the request inbox with filters', function () {

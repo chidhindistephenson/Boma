@@ -48,15 +48,15 @@ export default function DeleteUserForm({ className = '' }) {
     return (
         <section className={`space-y-6 ${className}`}>
             <header>
-                <h2 className="text-lg font-medium text-gray-900">
-                    Delete Account
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
+                    Account control
+                </p>
+                <h2 className="mt-2 font-display text-2xl font-semibold text-zinc-950 dark:text-white">
+                    Delete account
                 </h2>
 
-                <p className="mt-1 text-sm text-gray-600">
-                    Once your account is deleted, all of its resources and data
-                    will be permanently deleted. Before deleting your account,
-                    please download any data or information that you wish to
-                    retain.
+                <p className="mt-2 text-sm leading-7 text-zinc-600 dark:text-zinc-400">
+                    This permanently removes your account and its related data. This action cannot be undone.
                 </p>
             </header>
 
@@ -65,12 +65,12 @@ export default function DeleteUserForm({ className = '' }) {
             </DangerButton>
 
             <Modal show={confirmingUserDeletion} onClose={closeModal}>
-                <form onSubmit={deleteUser} className="p-6">
-                    <h2 className="text-lg font-medium text-gray-900">
+                <form onSubmit={deleteUser} className="bg-white p-6 dark:bg-zinc-950">
+                    <h2 className="text-lg font-medium text-zinc-950 dark:text-white">
                         Are you sure you want to delete your account?
                     </h2>
 
-                    <p className="mt-1 text-sm text-gray-600">
+                    <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
                         Once your account is deleted, all of its resources and
                         data will be permanently deleted. Please enter your
                         password to confirm you would like to permanently delete

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -84,6 +85,8 @@ class AdminUserController extends Controller
                     'phone' => $user->phone,
                     'role' => $user->role,
                     'status' => $user->status,
+                    'city' => $user->city,
+                    'area' => $user->area,
                     'emailVerified' => $user->email_verified_at !== null,
                     'locationLabel' => implode(', ', array_values(array_filter([
                         $user->area,
@@ -101,6 +104,8 @@ class AdminUserController extends Controller
                     'providerRequestCount' => $user->provider_job_requests_count,
                     'shortlistedProvidersCount' => $user->shortlisted_providers_count,
                     'shortlistedByCustomersCount' => $user->shortlisted_by_customers_count,
+                    'canEdit' => $canModerate,
+                    'canDelete' => $canModerate,
                     'canSuspend' => $canModerate && ! $user->isSuspended(),
                     'canRestore' => $canModerate && $user->isSuspended(),
                 ];
@@ -127,7 +132,22 @@ class AdminUserController extends Controller
         abort_if($user->isAdmin() || $user->id === $admin->id, 403);
 
         $validated = $request->validate([
-            'action' => ['required', 'string', Rule::in(['suspend', 'restore'])],
+            'action' => ['required', 'string', Rule::in(['update', 'suspend', 'restore'])],
+            'name' => ['required_if:action,update', 'string', 'max:255'],
+            'email' => [
+                'required_if:action,update',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($user->id),
+            ],
+            'phone' => ['nullable', 'string', 'max:40'],
+            'status' => [
+                'required_if:action,update',
+                'string',
+                Rule::in(['active', 'pending_verification', 'verification_rejected']),
+            ],
+            'city' => ['nullable', 'string', 'max:120'],
+            'area' => ['nullable', 'string', 'max:120'],
             'reason' => [
                 Rule::requiredIf($request->string('action')->toString() === 'suspend'),
                 'nullable',
@@ -136,7 +156,16 @@ class AdminUserController extends Controller
             ],
         ]);
 
-        if ($validated['action'] === 'suspend') {
+        if ($validated['action'] === 'update') {
+            $user->update([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'phone' => $validated['phone'] ?? null,
+                'status' => $validated['status'],
+                'city' => $validated['city'] ?? null,
+                'area' => $validated['area'] ?? null,
+            ]);
+        } elseif ($validated['action'] === 'suspend') {
             $user->update([
                 'suspended_at' => now(),
                 'suspended_by_user_id' => $admin->id,
@@ -151,5 +180,34 @@ class AdminUserController extends Controller
         }
 
         return Redirect::back();
+    }
+
+    public function destroy(Request $request, User $user): RedirectResponse
+    {
+        $admin = $request->user();
+
+        abort_unless($admin->isAdmin(), 403);
+        abort_if($user->isAdmin() || $user->id === $admin->id, 403);
+
+        $user->delete();
+
+        return Redirect::route('admin.users.index');
+    }
+
+    public function resetPassword(Request $request, User $user): RedirectResponse
+    {
+        $admin = $request->user();
+
+        abort_unless($admin->isAdmin(), 403);
+        abort_if($user->isAdmin() || $user->id === $admin->id, 403);
+
+        $status = Password::sendResetLink(['email' => $user->email]);
+
+        return Redirect::back()->with(
+            'status',
+            $status === Password::RESET_LINK_SENT
+                ? 'password-reset-link-sent'
+                : 'password-reset-link-failed',
+        );
     }
 }

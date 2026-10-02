@@ -3,24 +3,29 @@
 namespace App\Http\Controllers;
 
 use App\Models\ProviderService;
+use App\Services\SubscriptionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
 
 class ProviderServiceController extends Controller
 {
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, SubscriptionService $subscriptions): RedirectResponse
     {
         $provider = $request->user()->loadMissing('providerProfile');
 
         abort_unless($provider->isProvider() && $provider->providerProfile, 403);
 
-        $provider->providerProfile->services()->create($this->validatePayload($request));
+        $payload = $this->validatePayload($request);
+        $subscriptions->ensureServiceLimit($provider->providerProfile);
+        $subscriptions->ensureFeaturedServiceLimit($provider->providerProfile, (bool) $payload['is_featured']);
+
+        $provider->providerProfile->services()->create($payload);
 
         return Redirect::route('profile.edit');
     }
 
-    public function update(Request $request, ProviderService $service): RedirectResponse
+    public function update(Request $request, ProviderService $service, SubscriptionService $subscriptions): RedirectResponse
     {
         $provider = $request->user();
         $service->loadMissing('providerProfile');
@@ -32,7 +37,14 @@ class ProviderServiceController extends Controller
             403,
         );
 
-        $service->update($this->validatePayload($request));
+        $payload = $this->validatePayload($request);
+        $subscriptions->ensureFeaturedServiceLimit(
+            $service->providerProfile,
+            (bool) $payload['is_featured'],
+            $service->id,
+        );
+
+        $service->update($payload);
 
         return Redirect::route('profile.edit');
     }

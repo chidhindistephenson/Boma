@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use App\Models\JobRequest;
+use App\Models\JobRequestQuote;
+use App\Models\ProviderReview;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -118,7 +120,8 @@ class DashboardController extends Controller
                         'rating' => $review->rating,
                         'headline' => $review->headline,
                         'body' => $review->body,
-                        'customerName' => $review->customer->name,
+                        'providerResponse' => $review->provider_response,
+                        'customerName' => $review->reviewerFirstName(),
                         'createdAt' => $review->created_at->toDateTimeString(),
                     ];
                 })
@@ -168,6 +171,9 @@ class DashboardController extends Controller
                 'reviewCount' => $reviewCount,
                 'averageRating' => $averageRating,
                 'recentReviews' => $recentReviews,
+                'matchingOpenRequests' => $user->isDirectoryVisible(true)
+                    ? JobRequest::query()->openForProvider($user)->count()
+                    : 0,
                 'quotesPendingResponse' => $user->providerJobRequests()
                     ->whereHas('quote', fn ($query) => $query->where('status', 'pending'))
                     ->count(),
@@ -190,6 +196,20 @@ class DashboardController extends Controller
         }
 
         if ($user->isAdmin()) {
+            $targetedRequestCount = JobRequest::query()
+                ->whereNotNull('provider_id')
+                ->count();
+            $quoteCount = JobRequestQuote::query()->count();
+            $acceptedQuoteCount = JobRequestQuote::query()
+                ->where('status', 'accepted')
+                ->count();
+            $closedTargetedRequestCount = JobRequest::query()
+                ->whereNotNull('provider_id')
+                ->where('status', 'closed')
+                ->count();
+            $reviewCount = ProviderReview::query()->count();
+            $averageQuoteAmount = JobRequestQuote::query()->avg('amount');
+
             $pendingProviders = User::query()
                 ->where('role', 'provider')
                 ->whereHas('providerProfile', fn ($query) => $query->where('verification_status', 'pending'))
@@ -308,10 +328,29 @@ class DashboardController extends Controller
                     ->where('role', 'provider')
                     ->whereHas('providerProfile', fn ($query) => $query->where('verification_status', 'pending'))
                     ->count(),
+                'flaggedReviews' => ProviderReview::query()
+                    ->where('moderation_status', 'flagged')
+                    ->count(),
                 'rejectedProviders' => User::query()
                     ->where('role', 'provider')
                     ->whereHas('providerProfile', fn ($query) => $query->where('verification_status', 'rejected'))
                     ->count(),
+                'targetedRequests' => $targetedRequestCount,
+                'quoteCount' => $quoteCount,
+                'acceptedQuoteCount' => $acceptedQuoteCount,
+                'quoteCoverageRate' => $targetedRequestCount > 0
+                    ? (int) round(($quoteCount / $targetedRequestCount) * 100)
+                    : null,
+                'quoteAcceptanceRate' => $quoteCount > 0
+                    ? (int) round(($acceptedQuoteCount / $quoteCount) * 100)
+                    : null,
+                'reviewCount' => $reviewCount,
+                'reviewCompletionRate' => $closedTargetedRequestCount > 0
+                    ? (int) round(($reviewCount / $closedTargetedRequestCount) * 100)
+                    : null,
+                'averageQuoteAmount' => $averageQuoteAmount !== null
+                    ? (int) round((float) $averageQuoteAmount)
+                    : null,
             ];
 
             $adminQueues = [

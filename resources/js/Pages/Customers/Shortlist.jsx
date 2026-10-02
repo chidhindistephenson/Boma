@@ -116,7 +116,7 @@ export default function Shortlist({
 
             <div className="py-12">
                 <div className="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-[300px_minmax(0,1fr)] lg:px-8">
-                    <aside className="rounded-[2rem] border border-zinc-200/80 bg-white/88 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+                    <aside className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
                         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-400">
                             Refine shortlist
                         </p>
@@ -231,7 +231,7 @@ export default function Shortlist({
                     </aside>
 
                     <section className="space-y-6">
-                        <div className="rounded-[2rem] border border-zinc-200/80 bg-white/88 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+                        <div className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                                 <div>
                                     <p className="text-sm font-semibold uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-400">
@@ -257,7 +257,7 @@ export default function Shortlist({
                                     {providers.data.map((provider) => (
                                         <article
                                             key={provider.id}
-                                            className="rounded-[2rem] border border-zinc-200/80 bg-white/88 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]"
+                                            className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]"
                                         >
                                             <div className="flex items-start justify-between gap-4">
                                                 <div>
@@ -297,7 +297,7 @@ export default function Shortlist({
                                             </div>
 
                                             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                                                <div className="rounded-[1.4rem] border border-zinc-200 bg-zinc-50/85 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
+                                                <div className="rounded-[1.4rem] border border-zinc-200 bg-zinc-50/90 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
                                                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
                                                         Starting from
                                                     </p>
@@ -305,7 +305,7 @@ export default function Shortlist({
                                                         {formatMoney(provider.basePriceFrom)}
                                                     </p>
                                                 </div>
-                                                <div className="rounded-[1.4rem] border border-zinc-200 bg-zinc-50/85 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
+                                                <div className="rounded-[1.4rem] border border-zinc-200 bg-zinc-50/90 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
                                                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
                                                         Response time
                                                     </p>
@@ -359,7 +359,7 @@ export default function Shortlist({
                                     ))}
                                 </div>
 
-                                <div className="flex flex-col gap-4 rounded-[2rem] border border-zinc-200/80 bg-white/88 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.06)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)] sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex flex-col gap-4 rounded-[2rem] border border-zinc-200/80 bg-white/90 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.06)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)] sm:flex-row sm:items-center sm:justify-between">
                                     <p className="text-sm text-zinc-600 dark:text-zinc-400">
                                         Page {providers.current_page} of {providers.last_page}
                                     </p>
@@ -396,7 +396,7 @@ export default function Shortlist({
                                 </div>
                             </>
                         ) : (
-                            <div className="rounded-[2rem] border border-dashed border-zinc-300 bg-white/88 p-10 text-center shadow-[0_18px_50px_rgba(0,0,0,0.06)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+                            <div className="rounded-[2rem] border border-dashed border-zinc-300 bg-white/90 p-10 text-center shadow-[0_18px_50px_rgba(0,0,0,0.06)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
                                 <h3 className="font-display text-3xl font-semibold text-zinc-950 dark:text-white">
                                     No shortlisted providers match that filter.
                                 </h3>

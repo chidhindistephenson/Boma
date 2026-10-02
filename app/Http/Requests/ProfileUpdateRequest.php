@@ -19,10 +19,13 @@ class ProfileUpdateRequest extends FormRequest
         $isProvider = $this->user()?->isProvider() ?? false;
 
         return [
+            'section' => ['nullable', Rule::in(['profile', 'preferences'])],
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:30'],
             'city' => ['required', 'string', 'max:120'],
             'area' => ['nullable', 'string', 'max:120'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180', 'required_with:latitude'],
             'email' => [
                 'required',
                 'string',

@@ -61,7 +61,7 @@ test('provider can resubmit a rejected verification profile for review', functio
 
     $response
         ->assertSessionHasNoErrors()
-        ->assertRedirect(route('profile.edit'));
+        ->assertRedirect(route('profile.edit', ['section' => 'verification']));
 
     $provider->refresh();
 
@@ -117,9 +117,10 @@ test('admin can view the provider verification queue', function () {
     $response->assertInertia(fn (Assert $page) => $page
         ->component('Admin/Providers/Index')
         ->where('activeStatus', 'pending')
-        ->has('providers', 1)
-        ->where('providers.0.businessName', $provider->providerProfile->business_name)
-        ->has('providers.0.verificationTimeline', 0));
+        ->where('providers.per_page', 5)
+        ->has('providers.data', 1)
+        ->where('providers.data.0.businessName', $provider->providerProfile->business_name)
+        ->has('providers.data.0.verificationTimeline', 0));
 });
 
 test('admin can approve a provider verification request', function () {

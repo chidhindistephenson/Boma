@@ -95,6 +95,47 @@ test('admin can suspend and restore a customer account', function () {
     expect($customer->suspension_reason)->toBeNull();
 });
 
+test('admin can edit and delete a customer account', function () {
+    $admin = User::factory()->create([
+        'role' => 'admin',
+        'status' => 'active',
+    ]);
+
+    $customer = User::factory()->create([
+        'name' => 'Editable Customer',
+        'email' => 'editable-customer@example.com',
+        'phone' => '+263771000000',
+        'city' => 'Harare',
+        'area' => 'Avondale',
+    ]);
+
+    $this->actingAs($admin)
+        ->patch(route('admin.users.update', $customer), [
+            'action' => 'update',
+            'name' => 'Edited Customer',
+            'email' => 'edited-customer@example.com',
+            'phone' => '+263772000000',
+            'status' => 'active',
+            'city' => 'Bulawayo',
+            'area' => 'CBD',
+        ])
+        ->assertRedirect();
+
+    $customer->refresh();
+
+    expect($customer->name)->toBe('Edited Customer');
+    expect($customer->email)->toBe('edited-customer@example.com');
+    expect($customer->phone)->toBe('+263772000000');
+    expect($customer->city)->toBe('Bulawayo');
+    expect($customer->area)->toBe('CBD');
+
+    $this->actingAs($admin)
+        ->delete(route('admin.users.destroy', $customer))
+        ->assertRedirect(route('admin.users.index', absolute: false));
+
+    expect(User::query()->whereKey($customer->id)->exists())->toBeFalse();
+});
+
 test('admin cannot suspend another admin account', function () {
     $admin = User::factory()->create([
         'role' => 'admin',

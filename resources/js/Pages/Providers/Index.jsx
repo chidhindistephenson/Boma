@@ -1,4 +1,5 @@
 import ApplicationLogo from '@/Components/ApplicationLogo';
+import ProviderMap from '@/Components/ProviderMap';
 import ThemeToggle from '@/Components/ThemeToggle';
 import VerifiedBadge from '@/Components/VerifiedBadge';
 import { Head, Link, router, usePage } from '@inertiajs/react';
@@ -32,6 +33,16 @@ function buildQuery(filters) {
 
     if (!filters.verified) {
         query.verified = 0;
+    }
+
+    if (filters.latitude !== '' && filters.longitude !== '') {
+        query.latitude = filters.latitude;
+        query.longitude = filters.longitude;
+        query.radius = filters.radius;
+    }
+
+    if (filters.sort !== 'newest') {
+        query.sort = filters.sort;
     }
 
     return query;
@@ -85,6 +96,7 @@ export default function ProvidersIndex({
     cities,
     filters,
     providers,
+    mapProviders,
 }) {
     const { auth } = usePage().props;
     const [form, setForm] = useState({
@@ -93,7 +105,13 @@ export default function ProvidersIndex({
         city: filters.city,
         availability: filters.availability,
         verified: filters.verified,
+        latitude: filters.latitude ?? '',
+        longitude: filters.longitude ?? '',
+        radius: filters.radius ?? 25,
+        sort: filters.sort ?? 'newest',
     });
+    const [view, setView] = useState('list');
+    const [locationStatus, setLocationStatus] = useState('');
 
     useEffect(() => {
         setForm({
@@ -102,14 +120,25 @@ export default function ProvidersIndex({
             city: filters.city,
             availability: filters.availability,
             verified: filters.verified,
+            latitude: filters.latitude ?? '',
+            longitude: filters.longitude ?? '',
+            radius: filters.radius ?? 25,
+            sort: filters.sort ?? 'newest',
         });
     }, [
         filters.availability,
         filters.category,
         filters.city,
         filters.q,
+        filters.latitude,
+        filters.longitude,
+        filters.radius,
+        filters.sort,
         filters.verified,
     ]);
+
+    const hasSearchLocation =
+        form.latitude !== '' && form.longitude !== '';
 
     const activeFilters = [
         form.q ? `Search: ${form.q}` : null,
@@ -119,6 +148,10 @@ export default function ProvidersIndex({
             ? `Availability: ${formatStatus(form.availability)}`
             : null,
         form.verified ? 'Verified only' : 'All active providers',
+        hasSearchLocation ? `Within ${form.radius} km` : null,
+        form.sort !== 'newest'
+            ? `Sorted by ${formatStatus(form.sort)}`
+            : null,
     ].filter(Boolean);
 
     const runSearch = (event) => {
@@ -137,6 +170,10 @@ export default function ProvidersIndex({
             city: '',
             availability: 'any',
             verified: true,
+            latitude: '',
+            longitude: '',
+            radius: 25,
+            sort: 'newest',
         };
 
         setForm(defaults);
@@ -145,6 +182,65 @@ export default function ProvidersIndex({
             preserveScroll: true,
             replace: true,
         });
+    };
+
+    const useCurrentLocation = () => {
+        if (!navigator.geolocation) {
+            setLocationStatus('Location access is not supported by this browser.');
+            return;
+        }
+
+        setLocationStatus('Finding your location...');
+
+        navigator.geolocation.getCurrentPosition(
+            ({ coords }) => {
+                const nextForm = {
+                    ...form,
+                    latitude: coords.latitude.toFixed(7),
+                    longitude: coords.longitude.toFixed(7),
+                    sort: 'distance',
+                };
+
+                setForm(nextForm);
+                setLocationStatus('Location captured. Showing nearby providers.');
+                router.get(route('providers.index'), buildQuery(nextForm), {
+                    preserveScroll: true,
+                    replace: true,
+                });
+            },
+            () => {
+                setLocationStatus(
+                    'Location access was unavailable. Try again or search by city.',
+                );
+            },
+            {
+                enableHighAccuracy: true,
+                maximumAge: 60000,
+                timeout: 12000,
+            },
+        );
+    };
+
+    const clearSearchLocation = () => {
+        setForm((current) => ({
+            ...current,
+            latitude: '',
+            longitude: '',
+            sort: current.sort === 'distance' ? 'newest' : current.sort,
+        }));
+        setLocationStatus('Location filter cleared. Apply filters to refresh.');
+    };
+
+    const handleRadiusChange = (event) => {
+        if (event.target.value === 'locate_me') {
+            useCurrentLocation();
+            return;
+        }
+
+        setForm((current) => ({
+            ...current,
+            radius: event.target.value,
+        }));
     };
 
     return (
@@ -194,7 +290,7 @@ export default function ProvidersIndex({
                                     }))
                                 }
                                 placeholder="Search business, trade, service, area, or city"
-                                className="w-full rounded-full border border-zinc-300 bg-white/88 py-3 pl-12 pr-28 text-sm text-zinc-950 shadow-[0_18px_50px_rgba(0,0,0,0.06)] outline-none transition placeholder:text-zinc-400 focus:border-zinc-500 focus:ring-2 focus:ring-zinc-500/20 dark:border-white/10 dark:bg-zinc-950/80 dark:text-white dark:placeholder:text-zinc-500 dark:focus:border-zinc-400 dark:focus:ring-zinc-400/20"
+                                className="w-full rounded-full border border-zinc-300 bg-white/90 py-3 pl-12 pr-28 text-sm text-zinc-950 shadow-[0_18px_50px_rgba(0,0,0,0.06)] outline-none transition placeholder:text-zinc-400 focus:border-zinc-500 focus:ring-2 focus:ring-zinc-500/20 dark:border-white/10 dark:bg-zinc-950/80 dark:text-white dark:placeholder:text-zinc-500 dark:focus:border-zinc-400 dark:focus:ring-zinc-400/20"
                             />
                             <div className="absolute inset-y-0 right-2 flex items-center gap-2">
                                 {form.q ? (
@@ -258,24 +354,22 @@ export default function ProvidersIndex({
                         </div>
                     </header>
 
-                    <main className="grid gap-6 py-10 lg:grid-cols-[320px_minmax(0,1fr)]">
-                        <aside className="rounded-[2rem] border border-zinc-200/80 bg-white/86 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.08)] backdrop-blur dark:border-white/10 dark:bg-zinc-950/78 dark:shadow-[0_24px_70px_rgba(0,0,0,0.38)]">
-                            <p className="text-xs font-semibold uppercase tracking-[0.26em] text-zinc-500 dark:text-zinc-400">
-                                Directory filters
-                            </p>
-                            <h1 className="mt-3 font-display text-3xl font-semibold leading-tight text-zinc-950 dark:text-white">
-                                Search the live Boma provider directory.
-                            </h1>
-                            <p className="mt-4 text-sm leading-7 text-zinc-600 dark:text-zinc-400">
-                                Filter by trade, city, and availability while keeping
-                                trust visible at first glance.
-                            </p>
+                    <main className="space-y-6 py-10">
+                        <form
+                            onSubmit={runSearch}
+                            className="rounded-[1.7rem] border border-zinc-200/80 bg-white/90 p-5 shadow-[0_24px_70px_rgba(0,0,0,0.08)] backdrop-blur dark:border-white/10 dark:bg-zinc-950/80 dark:shadow-[0_24px_70px_rgba(0,0,0,0.38)]"
+                        >
+                            <div className="border-b border-zinc-200 pb-4 dark:border-white/10">
+                                <p className="inline-flex border-b-2 border-zinc-950 pb-2 text-xs font-semibold uppercase tracking-[0.24em] text-zinc-950 dark:border-white dark:text-white">
+                                    Directory filters
+                                </p>
+                            </div>
 
-                            <form onSubmit={runSearch} className="mt-8 space-y-4">
-                                <div>
-                                    <label className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
+                            <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+                                <label className="block">
+                                    <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                                         Category
-                                    </label>
+                                    </span>
                                     <select
                                         value={form.category}
                                         onChange={(event) =>
@@ -284,7 +378,7 @@ export default function ProvidersIndex({
                                                 category: event.target.value,
                                             }))
                                         }
-                                        className="mt-2 block w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 outline-none transition focus:border-zinc-500 focus:ring-2 focus:ring-zinc-500/20 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:focus:border-zinc-400 dark:focus:ring-zinc-400/20"
+                                        className="mt-2 block w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 outline-none transition focus:border-zinc-500 focus:ring-2 focus:ring-zinc-500/20 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
                                     >
                                         <option value="">All categories</option>
                                         {categories.map((category) => (
@@ -293,12 +387,12 @@ export default function ProvidersIndex({
                                             </option>
                                         ))}
                                     </select>
-                                </div>
+                                </label>
 
-                                <div>
-                                    <label className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
+                                <label className="block">
+                                    <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                                         City
-                                    </label>
+                                    </span>
                                     <select
                                         value={form.city}
                                         onChange={(event) =>
@@ -307,7 +401,7 @@ export default function ProvidersIndex({
                                                 city: event.target.value,
                                             }))
                                         }
-                                        className="mt-2 block w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 outline-none transition focus:border-zinc-500 focus:ring-2 focus:ring-zinc-500/20 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:focus:border-zinc-400 dark:focus:ring-zinc-400/20"
+                                        className="mt-2 block w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 outline-none transition focus:border-zinc-500 focus:ring-2 focus:ring-zinc-500/20 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
                                     >
                                         <option value="">All cities</option>
                                         {cities.map((city) => (
@@ -316,12 +410,12 @@ export default function ProvidersIndex({
                                             </option>
                                         ))}
                                     </select>
-                                </div>
+                                </label>
 
-                                <div>
-                                    <label className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
+                                <label className="block">
+                                    <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                                         Availability
-                                    </label>
+                                    </span>
                                     <select
                                         value={form.availability}
                                         onChange={(event) =>
@@ -330,25 +424,60 @@ export default function ProvidersIndex({
                                                 availability: event.target.value,
                                             }))
                                         }
-                                        className="mt-2 block w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 outline-none transition focus:border-zinc-500 focus:ring-2 focus:ring-zinc-500/20 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:focus:border-zinc-400 dark:focus:ring-zinc-400/20"
+                                        className="mt-2 block w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 outline-none transition focus:border-zinc-500 focus:ring-2 focus:ring-zinc-500/20 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
                                     >
                                         {availabilityOptions.map((option) => (
-                                            <option key={option.value} value={option.value}>
+                                            <option
+                                                key={option.value}
+                                                value={option.value}
+                                            >
                                                 {option.label}
                                             </option>
                                         ))}
                                     </select>
+                                </label>
+
+                                <label className="block">
+                                    <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                                        Sort
+                                    </span>
+                                    <select
+                                        value={form.sort}
+                                        onChange={(event) =>
+                                            setForm((current) => ({
+                                                ...current,
+                                                sort: event.target.value,
+                                            }))
+                                        }
+                                        className="mt-2 block w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 outline-none transition focus:border-zinc-500 focus:ring-2 focus:ring-zinc-500/20 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+                                    >
+                                        <option value="newest">Newest</option>
+                                        <option value="rating">Highest rated</option>
+                                        <option value="distance" disabled={!hasSearchLocation}>
+                                            Nearest first
+                                        </option>
+                                    </select>
+                                </label>
+
+                                <div>
+                                    <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                                        Radius
+                                    </span>
+                                    <select
+                                        value={form.radius}
+                                        onChange={handleRadiusChange}
+                                        className="mt-2 block w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 outline-none transition focus:border-zinc-500 focus:ring-2 focus:ring-zinc-500/20 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+                                    >
+                                        {[5, 10, 25, 50, 100].map((radius) => (
+                                            <option key={radius} value={radius}>
+                                                {radius} km
+                                            </option>
+                                        ))}
+                                        <option value="locate_me">Locate me</option>
+                                    </select>
                                 </div>
 
-                                <label className="flex items-center justify-between gap-4 rounded-[1.5rem] border border-zinc-200 bg-zinc-50/85 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
-                                    <div>
-                                        <p className="text-sm font-semibold text-zinc-950 dark:text-white">
-                                            Verified only
-                                        </p>
-                                        <p className="mt-1 text-xs leading-6 text-zinc-500 dark:text-zinc-400">
-                                            Hide providers that have not passed trust review.
-                                        </p>
-                                    </div>
+                                <label className="flex items-end gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
                                     <input
                                         type="checkbox"
                                         checked={form.verified}
@@ -358,41 +487,57 @@ export default function ProvidersIndex({
                                                 verified: event.target.checked,
                                             }))
                                         }
-                                        className="h-5 w-5 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:focus:ring-zinc-400"
+                                        className="mb-1 h-5 w-5 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-500 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:focus:ring-zinc-400"
                                     />
+                                    <span>
+                                        <span className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                                            Verified only
+                                        </span>
+                                        <span className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400">
+                                            Trusted providers
+                                        </span>
+                                    </span>
                                 </label>
+                            </div>
 
-                                <div className="flex gap-3 pt-2">
-                                    <button
-                                        type="submit"
-                                        className="flex-1 rounded-full bg-zinc-950 px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
-                                    >
-                                        Apply filters
-                                    </button>
+                            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                                <button
+                                    type="submit"
+                                    className="rounded-xl bg-zinc-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
+                                >
+                                    Apply filters
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={resetFilters}
+                                    className="rounded-xl border border-zinc-300 bg-white px-5 py-3 text-sm font-semibold text-zinc-950 transition hover:border-zinc-400 hover:bg-zinc-50 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:hover:border-white/20"
+                                >
+                                    Reset
+                                </button>
+                            </div>
+
+                            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
+                                <p>
+                                    {locationStatus ||
+                                        (hasSearchLocation
+                                            ? 'Location filter ready.'
+                                            : 'No location filter applied.')}
+                                </p>
+                                {hasSearchLocation ? (
                                     <button
                                         type="button"
-                                        onClick={resetFilters}
-                                        className="rounded-full border border-zinc-300 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-zinc-950 transition hover:border-zinc-400 hover:bg-zinc-50 dark:border-white/10 dark:bg-zinc-950 dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
+                                        onClick={clearSearchLocation}
+                                        className="font-semibold text-zinc-950 underline underline-offset-4 dark:text-white"
                                     >
-                                        Reset
+                                        Clear location
                                     </button>
-                                </div>
-                            </form>
-
-                            <div className="mt-8 rounded-[1.7rem] border border-zinc-200 bg-zinc-50/85 p-5 dark:border-white/10 dark:bg-white/[0.03]">
-                                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
-                                    Why this matters
-                                </p>
-                                <p className="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-400">
-                                    Public search now reflects actual provider storefronts:
-                                    services, response speed, availability, and pricing
-                                    cues shape who feels credible enough to contact.
-                                </p>
+                                ) : null}
                             </div>
-                        </aside>
+                        </form>
 
                         <section className="space-y-6">
-                            <div className="rounded-[2rem] border border-zinc-200/80 bg-white/86 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.08)] backdrop-blur dark:border-white/10 dark:bg-zinc-950/78 dark:shadow-[0_24px_70px_rgba(0,0,0,0.38)]">
+                            <div className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.08)] backdrop-blur dark:border-white/10 dark:bg-zinc-950/80 dark:shadow-[0_24px_70px_rgba(0,0,0,0.38)]">
                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                                     <div>
                                         <p className="text-xs font-semibold uppercase tracking-[0.26em] text-zinc-500 dark:text-zinc-400">
@@ -418,11 +563,36 @@ export default function ProvidersIndex({
                                     </div>
 
                                     {!auth.user ? (
-                                        <div className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50/85 px-4 py-3 text-sm leading-6 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
+                                        <div className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50/90 px-4 py-3 text-sm leading-6 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
                                             Create an account to shortlist providers and
                                             manage your service journey in one place.
                                         </div>
                                     ) : null}
+                                </div>
+
+                                <div className="mt-5 inline-flex rounded-full border border-zinc-200 bg-zinc-100 p-1 dark:border-white/10 dark:bg-white/[0.04]">
+                                    <button
+                                        type="button"
+                                        onClick={() => setView('list')}
+                                        className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition ${
+                                            view === 'list'
+                                                ? 'bg-zinc-950 text-white dark:bg-white dark:text-zinc-950'
+                                                : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white'
+                                        }`}
+                                    >
+                                        List
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setView('map')}
+                                        className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition ${
+                                            view === 'map'
+                                                ? 'bg-zinc-950 text-white dark:bg-white dark:text-zinc-950'
+                                                : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white'
+                                        }`}
+                                    >
+                                        Map ({mapProviders.length})
+                                    </button>
                                 </div>
 
                                 <div className="mt-5 flex flex-wrap gap-2">
@@ -437,12 +607,29 @@ export default function ProvidersIndex({
                                 </div>
                             </div>
 
-                            {providers.data.length ? (
+                            {view === 'map' ? (
+                                <ProviderMap
+                                    providers={mapProviders}
+                                    searchLocation={
+                                        hasSearchLocation
+                                            ? {
+                                                  latitude: form.latitude,
+                                                  longitude: form.longitude,
+                                              }
+                                            : null
+                                    }
+                                />
+                            ) : providers.data.length ? (
                                 <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                                     {providers.data.map((provider) => (
-                                        <article
+                                        <Link
                                             key={provider.id}
-                                            className="rounded-[2rem] border border-zinc-200/80 bg-white/88 p-6 shadow-[0_20px_70px_rgba(0,0,0,0.07)] backdrop-blur transition hover:-translate-y-1 dark:border-white/10 dark:bg-zinc-950/80 dark:shadow-[0_20px_70px_rgba(0,0,0,0.38)]"
+                                            href={route(
+                                                'providers.show',
+                                                provider.id,
+                                            )}
+                                            aria-label={`View ${provider.businessName} profile`}
+                                            className="boma-stat-card block cursor-pointer rounded-[2rem] p-6 transition hover:-translate-y-1 hover:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-500/30 dark:hover:border-white/20 dark:focus:ring-white/20"
                                         >
                                             <div className="flex items-start justify-between gap-4">
                                                 <div className="flex items-center gap-4">
@@ -481,9 +668,17 @@ export default function ProvidersIndex({
                                             </div>
 
                                             <div className="mt-5 flex flex-wrap gap-2">
-                                                <span className="inline-flex rounded-full border border-zinc-300 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-700 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300">
-                                                    {provider.category}
-                                                </span>
+                                                {(provider.categories?.length
+                                                    ? provider.categories
+                                                    : [provider.category]
+                                                ).map((category) => (
+                                                    <span
+                                                        key={category}
+                                                        className="inline-flex rounded-full border border-zinc-300 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-700 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300"
+                                                    >
+                                                        {category}
+                                                    </span>
+                                                ))}
                                                 <span
                                                     className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${badgeClasses(provider.availabilityStatus)}`}
                                                 >
@@ -509,19 +704,19 @@ export default function ProvidersIndex({
                                             </p>
 
                                             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                                                <div className="rounded-[1.2rem] border border-zinc-200 bg-zinc-50/85 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
-                                                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
+                                                <div className="boma-stat-card rounded-[1.2rem] px-4 py-4">
+                                                    <p className="boma-stat-card-title text-xs uppercase tracking-[0.18em]">
                                                         Starting from
                                                     </p>
-                                                    <p className="mt-2 text-sm font-medium text-zinc-950 dark:text-white">
+                                                    <p className="mt-2 text-sm font-semibold text-zinc-950 dark:text-white">
                                                         {formatMoney(provider.basePriceFrom)}
                                                     </p>
                                                 </div>
-                                                <div className="rounded-[1.2rem] border border-zinc-200 bg-zinc-50/85 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
-                                                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
+                                                <div className="boma-stat-card rounded-[1.2rem] px-4 py-4">
+                                                    <p className="boma-stat-card-title text-xs uppercase tracking-[0.18em]">
                                                         Response time
                                                     </p>
-                                                    <p className="mt-2 text-sm font-medium text-zinc-950 dark:text-white">
+                                                    <p className="mt-2 text-sm font-semibold text-zinc-950 dark:text-white">
                                                         {provider.responseTimeLabel ?? 'Not set'}
                                                     </p>
                                                 </div>
@@ -557,32 +752,26 @@ export default function ProvidersIndex({
                                                 </div>
                                             ) : null}
 
-                                            <div className="mt-6 rounded-[1.5rem] border border-zinc-200 bg-zinc-50/85 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
-                                                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
+                                            <div className="boma-stat-card mt-6 rounded-[1.5rem] px-4 py-4">
+                                                <p className="boma-stat-card-title text-xs uppercase tracking-[0.22em]">
                                                     Location
                                                 </p>
-                                                <p className="mt-2 text-sm font-medium text-zinc-950 dark:text-white">
+                                                <p className="mt-2 text-sm font-semibold text-zinc-950 dark:text-white">
                                                     {provider.locationLabel ||
                                                         'Location pending'}
                                                 </p>
+                                                {provider.distanceKm !== null ? (
+                                                    <p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">
+                                                        {provider.distanceKm} km away
+                                                    </p>
+                                                ) : null}
                                             </div>
 
-                                            <div className="mt-6 flex gap-3">
-                                                <Link
-                                                    href={route(
-                                                        'providers.show',
-                                                        provider.id,
-                                                    )}
-                                                    className="rounded-full bg-zinc-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
-                                                >
-                                                    View profile
-                                                </Link>
-                                            </div>
-                                        </article>
+                                        </Link>
                                     ))}
                                 </div>
                             ) : (
-                                <div className="rounded-[2rem] border border-dashed border-zinc-300 bg-white/82 p-10 text-center shadow-[0_18px_50px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-zinc-950/76 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+                                <div className="rounded-[2rem] border border-dashed border-zinc-300 bg-white/90 p-10 text-center shadow-[0_18px_50px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-zinc-950/80 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
                                     <p className="text-xs font-semibold uppercase tracking-[0.26em] text-zinc-500 dark:text-zinc-400">
                                         No matches yet
                                     </p>
@@ -612,7 +801,7 @@ export default function ProvidersIndex({
                                 </div>
                             )}
 
-                            <div className="flex flex-col gap-4 rounded-[2rem] border border-zinc-200/80 bg-white/86 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.06)] backdrop-blur dark:border-white/10 dark:bg-zinc-950/78 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)] sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex flex-col gap-4 rounded-[2rem] border border-zinc-200/80 bg-white/90 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.06)] backdrop-blur dark:border-white/10 dark:bg-zinc-950/80 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)] sm:flex-row sm:items-center sm:justify-between">
                                 <p className="text-sm text-zinc-600 dark:text-zinc-400">
                                     Page
                                     {' '}

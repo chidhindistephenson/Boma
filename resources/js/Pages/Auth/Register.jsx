@@ -62,6 +62,26 @@ export default function Register({ defaultRole, tradeCategories }) {
                     </p>
                 </div>
 
+                <div className="rounded-[1.75rem] border border-zinc-200 bg-zinc-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
+                        Quick customer signup
+                    </p>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <a
+                            href={route('oauth.redirect', 'google')}
+                            className="rounded-full border border-zinc-200 bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.18em] text-zinc-900 transition hover:border-zinc-950 dark:border-white/10 dark:bg-zinc-950 dark:text-white dark:hover:border-white/30"
+                        >
+                            Continue with Google
+                        </a>
+                        <a
+                            href={route('oauth.redirect', 'facebook')}
+                            className="rounded-full border border-zinc-200 bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.18em] text-zinc-900 transition hover:border-zinc-950 dark:border-white/10 dark:bg-zinc-950 dark:text-white dark:hover:border-white/30"
+                        >
+                            Continue with Facebook
+                        </a>
+                    </div>
+                </div>
+
                 <form onSubmit={submit} className="space-y-8">
                     <div>
                         <InputLabel value="I am joining as" />

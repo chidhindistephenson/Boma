@@ -30,6 +30,54 @@ function buildQuery(filters) {
     return query;
 }
 
+function analyticsIcon(label) {
+    const normalized = String(label).toLowerCase();
+
+    if (normalized.includes('quote') || normalized.includes('average')) {
+        return 'M12 6v12m-3-2.818 6-6M5.25 6.75h13.5A2.25 2.25 0 0 1 21 9v8.25a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 17.25V9a2.25 2.25 0 0 1 2.25-2.25Z';
+    }
+
+    if (normalized.includes('review')) {
+        return 'M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557L3.04 10.385a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345l2.125-5.111Z';
+    }
+
+    if (normalized.includes('targeted')) {
+        return 'M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z';
+    }
+
+    return 'M9 12h6m-6 4h6m2.25 5H6.75A2.25 2.25 0 0 1 4.5 18.75V5.25A2.25 2.25 0 0 1 6.75 3h7.5L19.5 8.25v10.5A2.25 2.25 0 0 1 17.25 21Z';
+}
+
+function AnalyticsSummaryCard({ label, value, helper }) {
+    return (
+        <div className="boma-stat-card">
+            <div className="flex items-center gap-3">
+                <span className="boma-stat-card-icon">
+                    <svg
+                        aria-hidden="true"
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                    >
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d={analyticsIcon(label)}
+                        />
+                    </svg>
+                </span>
+                <p className="boma-stat-card-title">{label}</p>
+            </div>
+            <p className="boma-stat-card-value mt-5">{value}</p>
+            <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
+                {helper}
+            </p>
+        </div>
+    );
+}
+
 export default function Index({
     filters,
     periodOptions,
@@ -47,6 +95,18 @@ export default function Index({
         period: filters.period,
         category: filters.category,
     });
+    const summaryCards = [
+        ['Requests', summary.requestCount, summary.periodLabel],
+        ['Targeted', summary.targetedRequestCount, 'Requests assigned to a provider'],
+        ['Quote coverage', formatPercent(summary.quoteCoverageRate), 'Targeted requests that received a quote'],
+        ['Quote acceptance', formatPercent(summary.quoteAcceptanceRate), 'Quotes converted into accepted work'],
+        [
+            'Average quote',
+            summary.averageQuoteAmount ? formatAmount(summary.averageQuoteAmount) : 'N/A',
+            'Mean amount across submitted quotes',
+        ],
+        ['Review completion', formatPercent(summary.reviewCompletionRate), 'Closed targeted requests with customer reviews'],
+    ];
 
     useEffect(() => {
         setForm({
@@ -96,78 +156,18 @@ export default function Index({
             <div className="py-12">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                        <div className="rounded-[1.6rem] border border-zinc-200/80 bg-white/88 p-5 dark:border-white/10 dark:bg-zinc-950/82">
-                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
-                                Requests
-                            </p>
-                            <p className="mt-3 font-display text-3xl font-semibold text-zinc-950 dark:text-white">
-                                {summary.requestCount}
-                            </p>
-                            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                                {summary.periodLabel}
-                            </p>
-                        </div>
-                        <div className="rounded-[1.6rem] border border-zinc-200/80 bg-white/88 p-5 dark:border-white/10 dark:bg-zinc-950/82">
-                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
-                                Targeted
-                            </p>
-                            <p className="mt-3 font-display text-3xl font-semibold text-zinc-950 dark:text-white">
-                                {summary.targetedRequestCount}
-                            </p>
-                            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                                Requests assigned to a provider
-                            </p>
-                        </div>
-                        <div className="rounded-[1.6rem] border border-zinc-200/80 bg-white/88 p-5 dark:border-white/10 dark:bg-zinc-950/82">
-                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
-                                Quote coverage
-                            </p>
-                            <p className="mt-3 font-display text-3xl font-semibold text-zinc-950 dark:text-white">
-                                {formatPercent(summary.quoteCoverageRate)}
-                            </p>
-                            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                                Targeted requests that received a quote
-                            </p>
-                        </div>
-                        <div className="rounded-[1.6rem] border border-zinc-200/80 bg-white/88 p-5 dark:border-white/10 dark:bg-zinc-950/82">
-                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
-                                Quote acceptance
-                            </p>
-                            <p className="mt-3 font-display text-3xl font-semibold text-zinc-950 dark:text-white">
-                                {formatPercent(summary.quoteAcceptanceRate)}
-                            </p>
-                            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                                Quotes converted into accepted work
-                            </p>
-                        </div>
-                        <div className="rounded-[1.6rem] border border-zinc-200/80 bg-white/88 p-5 dark:border-white/10 dark:bg-zinc-950/82">
-                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
-                                Average quote
-                            </p>
-                            <p className="mt-3 font-display text-3xl font-semibold text-zinc-950 dark:text-white">
-                                {summary.averageQuoteAmount
-                                    ? formatAmount(summary.averageQuoteAmount)
-                                    : 'N/A'}
-                            </p>
-                            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                                Mean amount across submitted quotes
-                            </p>
-                        </div>
-                        <div className="rounded-[1.6rem] border border-zinc-200/80 bg-white/88 p-5 dark:border-white/10 dark:bg-zinc-950/82">
-                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
-                                Review completion
-                            </p>
-                            <p className="mt-3 font-display text-3xl font-semibold text-zinc-950 dark:text-white">
-                                {formatPercent(summary.reviewCompletionRate)}
-                            </p>
-                            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                                Closed targeted requests with customer reviews
-                            </p>
-                        </div>
+                        {summaryCards.map(([label, value, helper]) => (
+                            <AnalyticsSummaryCard
+                                key={label}
+                                label={label}
+                                value={value}
+                                helper={helper}
+                            />
+                        ))}
                     </div>
 
                     <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
-                        <aside className="rounded-[2rem] border border-zinc-200/80 bg-white/88 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+                        <aside className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
                             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-400">
                                 Reporting scope
                             </p>
@@ -180,7 +180,7 @@ export default function Index({
 
                             <form onSubmit={submit} className="mt-8 space-y-4">
                                 <div>
-                                    <label className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
+                                    <label className="boma-stat-card-title">
                                         Window
                                     </label>
                                     <select
@@ -202,7 +202,7 @@ export default function Index({
                                 </div>
 
                                 <div>
-                                    <label className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
+                                    <label className="boma-stat-card-title">
                                         Category
                                     </label>
                                     <select
@@ -244,19 +244,19 @@ export default function Index({
                             <div className="mt-8 space-y-3">
                                 <Link
                                     href={route('admin.requests.index')}
-                                    className="block rounded-[1.3rem] border border-zinc-200 bg-zinc-50/85 px-4 py-4 text-sm font-semibold text-zinc-950 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
+                                    className="block rounded-[1.3rem] border border-zinc-200 bg-zinc-50/90 px-4 py-4 text-sm font-semibold text-zinc-950 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
                                 >
                                     Open request oversight
                                 </Link>
                                 <Link
                                     href={route('admin.providers.index')}
-                                    className="block rounded-[1.3rem] border border-zinc-200 bg-zinc-50/85 px-4 py-4 text-sm font-semibold text-zinc-950 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
+                                    className="block rounded-[1.3rem] border border-zinc-200 bg-zinc-50/90 px-4 py-4 text-sm font-semibold text-zinc-950 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
                                 >
                                     Open provider queue
                                 </Link>
                                 <Link
                                     href={route('admin.users.index')}
-                                    className="block rounded-[1.3rem] border border-zinc-200 bg-zinc-50/85 px-4 py-4 text-sm font-semibold text-zinc-950 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
+                                    className="block rounded-[1.3rem] border border-zinc-200 bg-zinc-50/90 px-4 py-4 text-sm font-semibold text-zinc-950 transition hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-900"
                                 >
                                     Open user directory
                                 </Link>
@@ -265,7 +265,7 @@ export default function Index({
 
                         <section className="space-y-6">
                             <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-                                <div className="rounded-[2rem] border border-zinc-200/80 bg-white/88 p-8 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+                                <div className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-8 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
                                     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                                         <div>
                                             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-400">
@@ -343,7 +343,7 @@ export default function Index({
                                 </div>
 
                                 <div className="space-y-6">
-                                    <div className="rounded-[2rem] border border-zinc-200/80 bg-white/88 p-8 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+                                    <div className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-8 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
                                         <p className="text-sm font-semibold uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-400">
                                             Request funnel
                                         </p>
@@ -351,7 +351,7 @@ export default function Index({
                                             {statusBreakdown.map((item) => (
                                                 <div
                                                     key={item.status}
-                                                    className="flex items-center justify-between rounded-[1.2rem] border border-zinc-200 bg-zinc-50/85 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]"
+                                                    className="flex items-center justify-between rounded-[1.2rem] border border-zinc-200 bg-zinc-50/90 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]"
                                                 >
                                                     <p className="text-sm font-medium text-zinc-950 dark:text-white">
                                                         {item.label}
@@ -364,7 +364,7 @@ export default function Index({
                                         </div>
                                     </div>
 
-                                    <div className="rounded-[2rem] border border-zinc-200/80 bg-white/88 p-8 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+                                    <div className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-8 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
                                         <p className="text-sm font-semibold uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-400">
                                             Quote states
                                         </p>
@@ -372,7 +372,7 @@ export default function Index({
                                             {quoteBreakdown.map((item) => (
                                                 <div
                                                     key={item.status}
-                                                    className="rounded-[1.2rem] border border-zinc-200 bg-zinc-50/85 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]"
+                                                    className="rounded-[1.2rem] border border-zinc-200 bg-zinc-50/90 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]"
                                                 >
                                                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
                                                         {item.label}
@@ -388,7 +388,7 @@ export default function Index({
                             </div>
 
                             <div className="grid gap-6 xl:grid-cols-2">
-                                <div className="rounded-[2rem] border border-zinc-200/80 bg-white/88 p-8 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+                                <div className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-8 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
                                     <p className="text-sm font-semibold uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-400">
                                         Demand by category
                                     </p>
@@ -401,14 +401,14 @@ export default function Index({
                                             {categoryBreakdown.map((category) => (
                                                 <div
                                                     key={category.category}
-                                                    className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50/85 p-5 dark:border-white/10 dark:bg-white/[0.03]"
+                                                    className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50/90 p-5 dark:border-white/10 dark:bg-white/[0.03]"
                                                 >
                                                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                                         <div>
                                                             <p className="font-display text-xl font-semibold text-zinc-950 dark:text-white">
                                                                 {category.category}
                                                             </p>
-                                                            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                                                            <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
                                                                 {formatCount(category.requestCount, 'request')}
                                                             </p>
                                                         </div>
@@ -450,13 +450,13 @@ export default function Index({
                                             ))}
                                         </div>
                                     ) : (
-                                        <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/85 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
+                                        <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/90 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
                                             No requests match the current scope.
                                         </div>
                                     )}
                                 </div>
 
-                                <div className="rounded-[2rem] border border-zinc-200/80 bg-white/88 p-8 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+                                <div className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-8 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
                                     <p className="text-sm font-semibold uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-400">
                                         Demand by city
                                     </p>
@@ -469,14 +469,14 @@ export default function Index({
                                             {cityBreakdown.map((city) => (
                                                 <div
                                                     key={city.city}
-                                                    className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50/85 p-5 dark:border-white/10 dark:bg-white/[0.03]"
+                                                    className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50/90 p-5 dark:border-white/10 dark:bg-white/[0.03]"
                                                 >
                                                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                                         <div>
                                                             <p className="font-display text-xl font-semibold text-zinc-950 dark:text-white">
                                                                 {city.city}
                                                             </p>
-                                                            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                                                            <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
                                                                 {formatCount(city.requestCount, 'request')}
                                                             </p>
                                                         </div>
@@ -497,14 +497,14 @@ export default function Index({
                                             ))}
                                         </div>
                                     ) : (
-                                        <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/85 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
+                                        <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/90 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
                                             No city-level demand to compare in this window.
                                         </div>
                                     )}
                                 </div>
                             </div>
 
-                            <div className="rounded-[2rem] border border-zinc-200/80 bg-white/88 p-8 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/82 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+                            <div className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-8 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
                                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                                     <div>
                                         <p className="text-sm font-semibold uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-400">
@@ -525,7 +525,7 @@ export default function Index({
                                         {providerPerformance.map((provider) => (
                                             <div
                                                 key={provider.id}
-                                                className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50/85 p-5 dark:border-white/10 dark:bg-white/[0.03]"
+                                                className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50/90 p-5 dark:border-white/10 dark:bg-white/[0.03]"
                                             >
                                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                                     <div>
@@ -581,78 +581,78 @@ export default function Index({
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/85 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
+                                    <div className="mt-6 rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50/90 p-6 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
                                         No provider performance data matches this scope yet.
                                     </div>
                                 )}
                             </div>
 
-                            <div className="rounded-[2rem] border border-zinc-200/80 bg-zinc-950 p-8 text-white shadow-[0_30px_80px_rgba(0,0,0,0.22)] dark:border-white/10 dark:bg-white dark:text-zinc-950">
-                                <p className="text-sm font-semibold uppercase tracking-[0.26em] text-zinc-400 dark:text-zinc-600">
+                            <div className="rounded-[2rem] border border-zinc-200/80 bg-white/90 p-8 text-zinc-950 shadow-[0_18px_50px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-zinc-950 dark:text-white dark:shadow-[0_30px_80px_rgba(0,0,0,0.22)]">
+                                <p className="text-sm font-semibold uppercase tracking-[0.26em] text-zinc-500 dark:text-zinc-400">
                                     Operations health
                                 </p>
                                 <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                                    <div className="rounded-[1.3rem] border border-white/10 bg-white/5 p-4 dark:border-zinc-200 dark:bg-zinc-100">
-                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400 dark:text-zinc-500">
+                                    <div className="rounded-[1.3rem] border border-zinc-200 bg-zinc-50/90 p-4 dark:border-white/10 dark:bg-white/[0.05]">
+                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
                                             Verified providers
                                         </p>
-                                        <p className="mt-2 font-display text-2xl font-semibold text-white dark:text-zinc-950">
+                                        <p className="mt-2 font-display text-2xl font-semibold text-zinc-950 dark:text-white">
                                             {operationalHealth.verifiedProviders}
                                         </p>
                                     </div>
-                                    <div className="rounded-[1.3rem] border border-white/10 bg-white/5 p-4 dark:border-zinc-200 dark:bg-zinc-100">
-                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400 dark:text-zinc-500">
+                                    <div className="rounded-[1.3rem] border border-zinc-200 bg-zinc-50/90 p-4 dark:border-white/10 dark:bg-white/[0.05]">
+                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
                                             Pending verifications
                                         </p>
-                                        <p className="mt-2 font-display text-2xl font-semibold text-white dark:text-zinc-950">
+                                        <p className="mt-2 font-display text-2xl font-semibold text-zinc-950 dark:text-white">
                                             {operationalHealth.pendingProviderVerifications}
                                         </p>
                                     </div>
-                                    <div className="rounded-[1.3rem] border border-white/10 bg-white/5 p-4 dark:border-zinc-200 dark:bg-zinc-100">
-                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400 dark:text-zinc-500">
+                                    <div className="rounded-[1.3rem] border border-zinc-200 bg-zinc-50/90 p-4 dark:border-white/10 dark:bg-white/[0.05]">
+                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
                                             Suspended users
                                         </p>
-                                        <p className="mt-2 font-display text-2xl font-semibold text-white dark:text-zinc-950">
+                                        <p className="mt-2 font-display text-2xl font-semibold text-zinc-950 dark:text-white">
                                             {operationalHealth.suspendedUsers}
                                         </p>
                                     </div>
-                                    <div className="rounded-[1.3rem] border border-white/10 bg-white/5 p-4 dark:border-zinc-200 dark:bg-zinc-100">
-                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400 dark:text-zinc-500">
+                                    <div className="rounded-[1.3rem] border border-zinc-200 bg-zinc-50/90 p-4 dark:border-white/10 dark:bg-white/[0.05]">
+                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
                                             Rejected providers
                                         </p>
-                                        <p className="mt-2 font-display text-2xl font-semibold text-white dark:text-zinc-950">
+                                        <p className="mt-2 font-display text-2xl font-semibold text-zinc-950 dark:text-white">
                                             {operationalHealth.rejectedProviders}
                                         </p>
                                     </div>
-                                    <div className="rounded-[1.3rem] border border-white/10 bg-white/5 p-4 dark:border-zinc-200 dark:bg-zinc-100">
-                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400 dark:text-zinc-500">
+                                    <div className="rounded-[1.3rem] border border-zinc-200 bg-zinc-50/90 p-4 dark:border-white/10 dark:bg-white/[0.05]">
+                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
                                             Targeted without quote
                                         </p>
-                                        <p className="mt-2 font-display text-2xl font-semibold text-white dark:text-zinc-950">
+                                        <p className="mt-2 font-display text-2xl font-semibold text-zinc-950 dark:text-white">
                                             {operationalHealth.targetedWithoutQuoteCount}
                                         </p>
                                     </div>
-                                    <div className="rounded-[1.3rem] border border-white/10 bg-white/5 p-4 dark:border-zinc-200 dark:bg-zinc-100">
-                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400 dark:text-zinc-500">
+                                    <div className="rounded-[1.3rem] border border-zinc-200 bg-zinc-50/90 p-4 dark:border-white/10 dark:bg-white/[0.05]">
+                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
                                             Closed without review
                                         </p>
-                                        <p className="mt-2 font-display text-2xl font-semibold text-white dark:text-zinc-950">
+                                        <p className="mt-2 font-display text-2xl font-semibold text-zinc-950 dark:text-white">
                                             {operationalHealth.unreviewedClosedRequestCount}
                                         </p>
                                     </div>
-                                    <div className="rounded-[1.3rem] border border-white/10 bg-white/5 p-4 dark:border-zinc-200 dark:bg-zinc-100">
-                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400 dark:text-zinc-500">
+                                    <div className="rounded-[1.3rem] border border-zinc-200 bg-zinc-50/90 p-4 dark:border-white/10 dark:bg-white/[0.05]">
+                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
                                             Avg messages / request
                                         </p>
-                                        <p className="mt-2 font-display text-2xl font-semibold text-white dark:text-zinc-950">
+                                        <p className="mt-2 font-display text-2xl font-semibold text-zinc-950 dark:text-white">
                                             {operationalHealth.averageMessagesPerRequest}
                                         </p>
                                     </div>
-                                    <div className="rounded-[1.3rem] border border-white/10 bg-white/5 p-4 dark:border-zinc-200 dark:bg-zinc-100">
-                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400 dark:text-zinc-500">
+                                    <div className="rounded-[1.3rem] border border-zinc-200 bg-zinc-50/90 p-4 dark:border-white/10 dark:bg-white/[0.05]">
+                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
                                             Avg quote lead days
                                         </p>
-                                        <p className="mt-2 font-display text-2xl font-semibold text-white dark:text-zinc-950">
+                                        <p className="mt-2 font-display text-2xl font-semibold text-zinc-950 dark:text-white">
                                             {operationalHealth.averageQuoteLeadDays ?? 'N/A'}
                                         </p>
                                     </div>

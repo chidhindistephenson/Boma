@@ -40,6 +40,21 @@ export default function Login({ status, canResetPassword }) {
                 </div>
             )}
 
+            <div className="mb-6 grid gap-3 sm:grid-cols-2">
+                <a
+                    href={route('oauth.redirect', 'google')}
+                    className="rounded-full border border-zinc-200 bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.18em] text-zinc-900 transition hover:border-zinc-950 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:hover:border-white/30"
+                >
+                    Google
+                </a>
+                <a
+                    href={route('oauth.redirect', 'facebook')}
+                    className="rounded-full border border-zinc-200 bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.18em] text-zinc-900 transition hover:border-zinc-950 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:hover:border-white/30"
+                >
+                    Facebook
+                </a>
+            </div>
+
             <form onSubmit={submit}>
                 <div>
                     <InputLabel htmlFor="email" value="Email" />

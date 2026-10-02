@@ -123,6 +123,7 @@ test('customer can create a targeted follow-up request and source link is stored
             'title' => 'Original consumer unit issue',
             'description' => 'Need a clean follow-up path for a consumer unit problem.',
             'urgency' => 'this_week',
+            'preferred_date' => now()->addDays(4)->toDateString(),
             'budget_min' => 120,
             'budget_max' => 260,
             'city' => 'Harare',
@@ -178,6 +179,7 @@ test('customers cannot use another customers request as a follow-up template', f
             'title' => 'Unauthorized follow-up attempt',
             'description' => 'This should not be allowed.',
             'urgency' => 'urgent',
+            'preferred_date' => now()->addDays(2)->toDateString(),
             'city' => 'Harare',
         ])
         ->assertForbidden();

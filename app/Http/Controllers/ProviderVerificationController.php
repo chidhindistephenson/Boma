@@ -58,6 +58,6 @@ class ProviderVerificationController extends Controller
             );
         });
 
-        return Redirect::route('profile.edit');
+        return Redirect::route('profile.edit', ['section' => 'verification']);
     }
 }

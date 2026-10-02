@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('profile page is displayed', function () {
@@ -12,6 +13,98 @@ test('profile page is displayed', function () {
         ->get('/profile');
 
     $response->assertOk();
+});
+
+test('unverified user can access account management', function () {
+    $user = User::factory()->unverified()->create();
+
+    $this->actingAs($user)
+        ->get(route('profile.edit'))
+        ->assertOk();
+});
+
+test('profile page selects valid account sections', function () {
+    $provider = User::factory()->provider()->create();
+
+    $this->actingAs($provider)
+        ->get(route('profile.edit', ['section' => 'verification']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('activeSection', 'verification'));
+
+    $this->actingAs($provider)
+        ->get(route('profile.edit', ['section' => 'storefront']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('activeSection', 'profile'));
+
+    $this->actingAs($provider)
+        ->get(route('profile.edit', ['section' => 'unknown']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('activeSection', 'profile'));
+});
+
+test('user can upload and view a profile photo', function () {
+    Storage::fake('local');
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->post(route('profile.photo.store'), [
+            'photo' => UploadedFile::fake()->image('avatar.jpg', 480, 480)->size(900),
+        ])
+        ->assertSessionHasNoErrors();
+
+    $path = $user->fresh()->profile_photo_path;
+
+    expect($path)->not->toBeNull();
+    Storage::disk('local')->assertExists($path);
+
+    $this->get(route('users.avatar', $user))->assertOk();
+});
+
+test('replacing a profile photo removes the previous file', function () {
+    Storage::fake('local');
+    $user = User::factory()->create();
+
+    $oldPath = UploadedFile::fake()->image('old.jpg')->store("profile-photos/{$user->id}", 'local');
+    $user->update(['profile_photo_path' => $oldPath]);
+
+    $this->actingAs($user)
+        ->post(route('profile.photo.store'), [
+            'photo' => UploadedFile::fake()->image('new.webp'),
+        ])
+        ->assertSessionHasNoErrors();
+
+    Storage::disk('local')->assertMissing($oldPath);
+    Storage::disk('local')->assertExists($user->fresh()->profile_photo_path);
+});
+
+test('user can remove their profile photo', function () {
+    Storage::fake('local');
+    $user = User::factory()->create();
+    $path = UploadedFile::fake()->image('avatar.png')->store("profile-photos/{$user->id}", 'local');
+    $user->update(['profile_photo_path' => $path]);
+
+    $this->actingAs($user)
+        ->delete(route('profile.photo.destroy'))
+        ->assertSessionHasNoErrors();
+
+    expect($user->fresh()->profile_photo_path)->toBeNull();
+    Storage::disk('local')->assertMissing($path);
+});
+
+test('profile photo must be a supported image', function () {
+    Storage::fake('local');
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->post(route('profile.photo.store'), [
+            'photo' => UploadedFile::fake()->create('payload.pdf', 20, 'application/pdf'),
+        ])
+        ->assertSessionHasErrors('photo');
+
+    expect($user->fresh()->profile_photo_path)->toBeNull();
 });
 
 test('profile information can be updated', function () {
@@ -25,6 +118,8 @@ test('profile information can be updated', function () {
             'phone' => '+263773333333',
             'city' => 'Bulawayo',
             'area' => 'Hillside',
+            'latitude' => -20.1547,
+            'longitude' => 28.5833,
         ]);
 
     $response
@@ -38,7 +133,26 @@ test('profile information can be updated', function () {
     $this->assertSame('+263773333333', $user->phone);
     $this->assertSame('Bulawayo', $user->city);
     $this->assertSame('Hillside', $user->area);
+    $this->assertSame(-20.1547, $user->latitude);
+    $this->assertSame(28.5833, $user->longitude);
     $this->assertNull($user->email_verified_at);
+});
+
+test('saving service preferences keeps the active account section', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->patch(route('profile.update'), [
+            'section' => 'preferences',
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'city' => $user->city,
+            'area' => $user->area,
+            'preferred_radius_km' => 30,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('profile.edit', ['section' => 'preferences']));
 });
 
 test('email verification status is unchanged when the email address is unchanged', function () {
@@ -190,7 +304,10 @@ test('customer profile preferences can be updated', function () {
 });
 
 test('user can delete their account', function () {
+    Storage::fake('local');
     $user = User::factory()->create();
+    $photoPath = UploadedFile::fake()->image('avatar.jpg')->store("profile-photos/{$user->id}", 'local');
+    $user->update(['profile_photo_path' => $photoPath]);
 
     $response = $this
         ->actingAs($user)
@@ -204,6 +321,23 @@ test('user can delete their account', function () {
 
     $this->assertGuest();
     $this->assertNull($user->fresh());
+    Storage::disk('local')->assertMissing($photoPath);
+});
+
+test('admin profile update does not create customer preferences', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $this->actingAs($admin)
+        ->patch(route('profile.update'), [
+            'name' => 'Updated Admin',
+            'email' => $admin->email,
+            'phone' => $admin->phone,
+            'city' => $admin->city,
+            'area' => $admin->area,
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect($admin->fresh()->customerProfile)->toBeNull();
 });
 
 test('correct password must be provided to delete account', function () {

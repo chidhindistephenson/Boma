@@ -31,7 +31,7 @@ function createReviewProvider(array $userAttributes = [], array $profileAttribut
 
 function createClosedReviewRequest(User $customer, User $provider, array $attributes = []): JobRequest
 {
-    return JobRequest::create(array_merge([
+    $jobRequest = JobRequest::create(array_merge([
         'customer_id' => $customer->id,
         'provider_id' => $provider->id,
         'trade_category' => $provider->providerProfile->trade_category,
@@ -44,6 +44,19 @@ function createClosedReviewRequest(User $customer, User $provider, array $attrib
         'customer_last_read_at' => now(),
         'provider_last_read_at' => now(),
     ], $attributes));
+
+    $jobRequest->payment()->create([
+        'customer_id' => $customer->id,
+        'provider_id' => $provider->id,
+        'amount' => 150,
+        'method' => 'mobile_money',
+        'reference' => 'CONFIRMED-REVIEW-PAYMENT-'.$jobRequest->id,
+        'status' => 'confirmed',
+        'paid_at' => now()->subDay(),
+        'confirmed_at' => now(),
+    ]);
+
+    return $jobRequest;
 }
 
 test('customer can leave and update a review for a closed targeted request', function () {
@@ -116,6 +129,22 @@ test('customer cannot review a request before it is closed', function () {
         ->assertForbidden();
 });
 
+test('customer cannot review a closed request without a confirmed payment', function () {
+    $customer = User::factory()->create();
+    $provider = createReviewProvider();
+    $jobRequest = createClosedReviewRequest($customer, $provider);
+
+    $jobRequest->payment()->delete();
+
+    $this->actingAs($customer)
+        ->put(route('requests.review.upsert', $jobRequest), [
+            'rating' => 5,
+            'headline' => 'No verified transaction',
+            'body' => 'A closed request without confirmed payment must not produce a review.',
+        ])
+        ->assertForbidden();
+});
+
 test('unrelated customer cannot review another customers closed request', function () {
     $customer = User::factory()->create();
     $otherCustomer = User::factory()->create([
@@ -152,8 +181,182 @@ test('request thread exposes the published review to the provider', function () 
         ->assertInertia(fn (Assert $page) => $page
             ->component('Requests/Show')
             ->where('jobRequest.review.rating', 5)
-            ->where('jobRequest.review.customerName', $customer->name)
+            ->where('jobRequest.review.customerName', str($customer->name)->before(' ')->toString())
             ->where('permissions.canReview', false));
+});
+
+test('provider can post exactly one response and the customer review becomes locked', function () {
+    $customer = User::factory()->create(['name' => 'Tariro Moyo']);
+    $provider = createReviewProvider();
+    $jobRequest = createClosedReviewRequest($customer, $provider);
+    $review = $jobRequest->review()->create([
+        'customer_id' => $customer->id,
+        'provider_id' => $provider->id,
+        'rating' => 5,
+        'headline' => 'Clear workmanship',
+        'body' => 'The provider communicated clearly and completed the agreed work.',
+    ]);
+
+    $this->actingAs($provider)
+        ->patch(route('reviews.response', $review), [
+            'response' => 'Thank you for trusting us with the repair.',
+        ])
+        ->assertRedirect();
+
+    $this->assertDatabaseHas('provider_reviews', [
+        'id' => $review->id,
+        'provider_response' => 'Thank you for trusting us with the repair.',
+    ]);
+
+    $this->actingAs($provider)
+        ->patch(route('reviews.response', $review), [
+            'response' => 'A second response must not be accepted.',
+        ])
+        ->assertForbidden();
+
+    $this->actingAs($customer)
+        ->put(route('requests.review.upsert', $jobRequest), [
+            'rating' => 1,
+            'headline' => 'Changed after response',
+            'body' => 'The customer cannot rewrite the context after a provider response.',
+        ])
+        ->assertForbidden();
+
+    $this->get(route('providers.show', $provider))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('provider.reviews.0.customerName', 'Tariro')
+            ->where('provider.reviews.0.providerResponse', 'Thank you for trusting us with the repair.'));
+});
+
+test('profanity screening flags a review and excludes it from the public rating', function () {
+    $admin = User::factory()->create([
+        'role' => 'admin',
+        'status' => 'active',
+        'email_verified_at' => now(),
+    ]);
+    $customer = User::factory()->create();
+    $provider = createReviewProvider();
+    $jobRequest = createClosedReviewRequest($customer, $provider);
+
+    $this->actingAs($customer)
+        ->put(route('requests.review.upsert', $jobRequest), [
+            'rating' => 1,
+            'headline' => 'Unacceptable',
+            'body' => 'This shit should be checked before appearing publicly.',
+        ])
+        ->assertRedirect();
+
+    $this->assertDatabaseHas('provider_reviews', [
+        'job_request_id' => $jobRequest->id,
+        'moderation_status' => 'flagged',
+    ]);
+    $this->assertDatabaseHas('in_app_notifications', [
+        'user_id' => $admin->id,
+        'type' => 'provider_review_flagged',
+    ]);
+
+    $this->get(route('providers.show', $provider))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('provider.reviewCount', 0)
+            ->has('provider.reviews', 0));
+
+    $this->actingAs($admin)
+        ->get(route('admin.reviews.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Admin/Reviews/Index')
+            ->where('summary.flagged', 1)
+            ->has('reviews.data', 1));
+
+    $this->actingAs($admin)
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('platformSummary.flaggedReviews', 1));
+});
+
+test('a reported review enters moderation and an admin can publish or remove it', function () {
+    $admin = User::factory()->create([
+        'role' => 'admin',
+        'status' => 'active',
+        'email_verified_at' => now(),
+    ]);
+    $customer = User::factory()->create();
+    $provider = createReviewProvider();
+    $jobRequest = createClosedReviewRequest($customer, $provider);
+    $review = $jobRequest->review()->create([
+        'customer_id' => $customer->id,
+        'provider_id' => $provider->id,
+        'rating' => 4,
+        'headline' => 'Reported review',
+        'body' => 'This review contains a claim that the provider wants checked.',
+    ]);
+
+    $this->actingAs($provider)
+        ->post(route('reviews.reports.store', $review), [
+            'reason' => 'false_information',
+            'details' => 'The stated arrival time does not match the request record.',
+        ])
+        ->assertRedirect();
+
+    $this->assertDatabaseHas('provider_review_reports', [
+        'provider_review_id' => $review->id,
+        'reporter_id' => $provider->id,
+        'reason' => 'false_information',
+    ]);
+    expect($review->fresh()->moderation_status)->toBe('flagged');
+    expect($provider->receivedProviderReviews()->count())->toBe(0);
+
+    $this->actingAs($admin)
+        ->patch(route('admin.reviews.update', $review), [
+            'action' => 'publish',
+            'moderation_notes' => 'The request evidence supports publishing the review.',
+        ])
+        ->assertRedirect();
+
+    expect($review->fresh()->moderation_status)->toBe('published');
+    expect($provider->receivedProviderReviews()->count())->toBe(1);
+
+    $this->actingAs($admin)
+        ->patch(route('admin.reviews.update', $review), [
+            'action' => 'remove',
+            'moderation_notes' => 'Removed after additional policy review.',
+        ])
+        ->assertRedirect();
+
+    expect($review->fresh()->moderation_status)->toBe('removed');
+    expect($provider->receivedProviderReviews()->count())->toBe(0);
+});
+
+test('non admins cannot access moderation and removal requires a note', function () {
+    $customer = User::factory()->create();
+    $provider = createReviewProvider();
+    $jobRequest = createClosedReviewRequest($customer, $provider);
+    $review = $jobRequest->review()->create([
+        'customer_id' => $customer->id,
+        'provider_id' => $provider->id,
+        'rating' => 3,
+        'headline' => 'Moderation permissions',
+        'body' => 'This review is used to verify moderation authorization.',
+        'moderation_status' => 'flagged',
+    ]);
+
+    $this->actingAs($customer)
+        ->get(route('admin.reviews.index'))
+        ->assertForbidden();
+
+    $admin = User::factory()->create([
+        'role' => 'admin',
+        'email_verified_at' => now(),
+    ]);
+
+    $this->actingAs($admin)
+        ->patch(route('admin.reviews.update', $review), [
+            'action' => 'remove',
+            'moderation_notes' => '',
+        ])
+        ->assertSessionHasErrors('moderation_notes');
 });
 
 test('provider profile and directory expose aggregated review data', function () {

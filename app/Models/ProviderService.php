@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ProviderService extends Model
 {
@@ -27,5 +28,10 @@ class ProviderService extends Model
     public function providerProfile(): BelongsTo
     {
         return $this->belongsTo(ProviderProfile::class);
+    }
+
+    public function portfolioItems(): HasMany
+    {
+        return $this->hasMany(ProviderPortfolioItem::class);
     }
 }
