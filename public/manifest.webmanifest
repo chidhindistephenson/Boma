@@ -1,0 +1,19 @@
+{
+    "name": "Boma",
+    "short_name": "Boma",
+    "description": "Verified local service discovery, requests, chats, and payments.",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "background_color": "#f4f1ea",
+    "theme_color": "#050505",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "/icons/boma-icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        }
+    ]
+}

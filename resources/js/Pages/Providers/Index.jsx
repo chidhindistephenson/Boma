@@ -41,6 +41,18 @@ function buildQuery(filters) {
         query.radius = filters.radius;
     }
 
+    if (filters.min_rating !== '') {
+        query.min_rating = filters.min_rating;
+    }
+
+    if (filters.price_min !== '') {
+        query.price_min = filters.price_min;
+    }
+
+    if (filters.price_max !== '') {
+        query.price_max = filters.price_max;
+    }
+
     if (filters.sort !== 'newest') {
         query.sort = filters.sort;
     }
@@ -108,6 +120,9 @@ export default function ProvidersIndex({
         latitude: filters.latitude ?? '',
         longitude: filters.longitude ?? '',
         radius: filters.radius ?? 25,
+        min_rating: filters.min_rating ?? '',
+        price_min: filters.price_min ?? '',
+        price_max: filters.price_max ?? '',
         sort: filters.sort ?? 'newest',
     });
     const [view, setView] = useState('list');
@@ -123,6 +138,9 @@ export default function ProvidersIndex({
             latitude: filters.latitude ?? '',
             longitude: filters.longitude ?? '',
             radius: filters.radius ?? 25,
+            min_rating: filters.min_rating ?? '',
+            price_min: filters.price_min ?? '',
+            price_max: filters.price_max ?? '',
             sort: filters.sort ?? 'newest',
         });
     }, [
@@ -132,6 +150,9 @@ export default function ProvidersIndex({
         filters.q,
         filters.latitude,
         filters.longitude,
+        filters.min_rating,
+        filters.price_min,
+        filters.price_max,
         filters.radius,
         filters.sort,
         filters.verified,
@@ -149,6 +170,10 @@ export default function ProvidersIndex({
             : null,
         form.verified ? 'Verified only' : 'All active providers',
         hasSearchLocation ? `Within ${form.radius} km` : null,
+        form.min_rating ? `Rating ${form.min_rating}+` : null,
+        form.price_min || form.price_max
+            ? `Price ${form.price_min || '0'}-${form.price_max || 'any'}`
+            : null,
         form.sort !== 'newest'
             ? `Sorted by ${formatStatus(form.sort)}`
             : null,
@@ -173,6 +198,9 @@ export default function ProvidersIndex({
             latitude: '',
             longitude: '',
             radius: 25,
+            min_rating: '',
+            price_min: '',
+            price_max: '',
             sort: 'newest',
         };
 
@@ -452,6 +480,9 @@ export default function ProvidersIndex({
                                         className="mt-2 block w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 outline-none transition focus:border-zinc-500 focus:ring-2 focus:ring-zinc-500/20 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
                                     >
                                         <option value="newest">Newest</option>
+                                        <option value="recently_active">
+                                            Most recently active
+                                        </option>
                                         <option value="rating">Highest rated</option>
                                         <option value="distance" disabled={!hasSearchLocation}>
                                             Nearest first
@@ -476,6 +507,67 @@ export default function ProvidersIndex({
                                         <option value="locate_me">Locate me</option>
                                     </select>
                                 </div>
+
+                                <label className="block">
+                                    <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                                        Min rating
+                                    </span>
+                                    <select
+                                        value={form.min_rating}
+                                        onChange={(event) =>
+                                            setForm((current) => ({
+                                                ...current,
+                                                min_rating: event.target.value,
+                                            }))
+                                        }
+                                        className="mt-2 block w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 outline-none transition focus:border-zinc-500 focus:ring-2 focus:ring-zinc-500/20 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+                                    >
+                                        <option value="">Any rating</option>
+                                        {[5, 4, 3, 2, 1].map((rating) => (
+                                            <option key={rating} value={rating}>
+                                                {rating}+ stars
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+
+                                <label className="block">
+                                    <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                                        Min price
+                                    </span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={form.price_min}
+                                        onChange={(event) =>
+                                            setForm((current) => ({
+                                                ...current,
+                                                price_min: event.target.value,
+                                            }))
+                                        }
+                                        placeholder="e.g. 50"
+                                        className="mt-2 block w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 outline-none transition placeholder:text-zinc-400 focus:border-zinc-500 focus:ring-2 focus:ring-zinc-500/20 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:placeholder:text-zinc-500"
+                                    />
+                                </label>
+
+                                <label className="block">
+                                    <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                                        Max price
+                                    </span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={form.price_max}
+                                        onChange={(event) =>
+                                            setForm((current) => ({
+                                                ...current,
+                                                price_max: event.target.value,
+                                            }))
+                                        }
+                                        placeholder="e.g. 200"
+                                        className="mt-2 block w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 outline-none transition placeholder:text-zinc-400 focus:border-zinc-500 focus:ring-2 focus:ring-zinc-500/20 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:placeholder:text-zinc-500"
+                                    />
+                                </label>
 
                                 <label className="flex items-end gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
                                     <input

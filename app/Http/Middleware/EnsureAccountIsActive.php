@@ -13,7 +13,7 @@ class EnsureAccountIsActive
     {
         $user = $request->user();
 
-        if (! $user || ! $user->isSuspended()) {
+        if (! $user || (! $user->isSuspended() && ! $user->isDeletedAccount())) {
             return $next($request);
         }
 
@@ -22,10 +22,14 @@ class EnsureAccountIsActive
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
+        $message = $user->isDeletedAccount()
+            ? 'This account has been deleted and can no longer be used.'
+            : 'This account has been suspended. Contact platform support if you think this is a mistake.';
+
         return redirect()
             ->route('login')
             ->withErrors([
-                'email' => 'This account has been suspended. Contact platform support if you think this is a mistake.',
+                'email' => $message,
             ]);
     }
 }

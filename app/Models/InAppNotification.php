@@ -53,7 +53,7 @@ class InAppNotification extends Model
             return 'messages';
         }
 
-        if (str_contains($type, 'payment') || str_contains($type, 'payout')) {
+        if (str_contains($type, 'payment') || str_contains($type, 'payout') || str_contains($type, 'subscription')) {
             return 'payments';
         }
 

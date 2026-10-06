@@ -43,6 +43,10 @@ class User extends Authenticatable implements MustVerifyEmail
         'two_factor_secret',
         'two_factor_recovery_codes',
         'two_factor_confirmed_at',
+        'deletion_requested_at',
+        'anonymized_at',
+        'retention_until',
+        'deletion_reason',
     ];
 
     /**
@@ -72,6 +76,9 @@ class User extends Authenticatable implements MustVerifyEmail
             'password' => 'hashed',
             'two_factor_recovery_codes' => 'array',
             'two_factor_confirmed_at' => 'datetime',
+            'deletion_requested_at' => 'datetime',
+            'anonymized_at' => 'datetime',
+            'retention_until' => 'datetime',
         ];
     }
 
@@ -256,6 +263,11 @@ class User extends Authenticatable implements MustVerifyEmail
     public function isSuspended(): bool
     {
         return $this->suspended_at !== null;
+    }
+
+    public function isDeletedAccount(): bool
+    {
+        return $this->status === 'deleted' || $this->anonymized_at !== null;
     }
 
     public function hasTwoFactorEnabled(): bool

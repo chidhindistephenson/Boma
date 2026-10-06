@@ -1,14 +1,17 @@
 <?php
 
+use App\Models\FinancialAuditLog;
 use App\Models\JobRequest;
 use App\Models\JobRequestPayment;
 use App\Models\PayoutRequest;
 use App\Models\User;
 use App\Models\WalletDepositRequest;
+use App\Notifications\PaymentReceiptNotification;
 use App\Services\PaymentEscrowService;
 use App\Services\Payments\PesepayGateway;
 use App\Services\WalletService;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -119,6 +122,8 @@ test('customer can record a payment on an accepted quoted request', function () 
 });
 
 test('provider can confirm a submitted payment', function () {
+    Notification::fake();
+
     $customer = User::factory()->create();
     $provider = createPaymentProvider();
     $jobRequest = createAcceptedQuotedPaymentRequest($customer, $provider);
@@ -144,6 +149,20 @@ test('provider can confirm a submitted payment', function () {
         'escrow_status' => 'external',
     ]);
 
+    $payment = $jobRequest->fresh('payment')->payment;
+
+    Notification::assertSentTo($customer, PaymentReceiptNotification::class);
+    Notification::assertSentTo($provider, PaymentReceiptNotification::class);
+
+    $this->assertDatabaseHas('financial_audit_logs', [
+        'event_type' => 'payment_confirmed_external',
+        'job_request_payment_id' => $payment->id,
+        'amount' => 320,
+        'currency' => 'USD',
+        'direction' => 'debit',
+        'status' => 'confirmed',
+    ]);
+
     $this->assertDatabaseHas('in_app_notifications', [
         'user_id' => $customer->id,
         'type' => 'request_payment_confirmed',
@@ -152,6 +171,8 @@ test('provider can confirm a submitted payment', function () {
 });
 
 test('customer can pay electronically through the system checkout', function () {
+    Notification::fake();
+
     $customer = User::factory()->create([
         'name' => 'Brenda Checkout',
         'email' => 'brenda.checkout@example.com',
@@ -192,6 +213,24 @@ test('customer can pay electronically through the system checkout', function () 
         'type' => 'request_payment_confirmed',
         'title' => 'Payment received',
     ]);
+
+    Notification::assertSentTo($customer, PaymentReceiptNotification::class);
+    Notification::assertSentTo($provider, PaymentReceiptNotification::class);
+
+    $this->assertDatabaseHas('financial_audit_logs', [
+        'event_type' => 'payment_held',
+        'job_request_payment_id' => $payment->id,
+        'amount' => 320,
+        'currency' => 'USD',
+        'direction' => 'debit',
+        'status' => 'confirmed',
+    ]);
+
+    expect(FinancialAuditLog::query()
+        ->where('event_type', 'payment_held')
+        ->where('job_request_payment_id', $payment->id)
+        ->firstOrFail()
+        ->checksum)->not->toBeEmpty();
 
     $this->actingAs($provider)
         ->get(route('requests.show', $jobRequest))
@@ -1031,6 +1070,16 @@ test('provider can request payout and admin can mark it paid', function () {
         ->and($payout->status)->toBe('pending')
         ->and($payout->walletTransaction)->not->toBeNull();
 
+    $this->assertDatabaseHas('financial_audit_logs', [
+        'event_type' => 'payout_requested',
+        'payout_request_id' => $payout->id,
+        'wallet_transaction_id' => $payout->wallet_transaction_id,
+        'amount' => 250,
+        'currency' => 'USD',
+        'direction' => 'debit',
+        'status' => 'pending',
+    ]);
+
     $this->assertDatabaseHas('in_app_notifications', [
         'user_id' => $admin->id,
         'type' => 'provider_payout_requested',
@@ -1044,6 +1093,15 @@ test('provider can request payout and admin can mark it paid', function () {
         ->assertRedirect(route('admin.payouts.index'));
 
     expect($payout->fresh()->status)->toBe('approved');
+
+    $this->assertDatabaseHas('financial_audit_logs', [
+        'event_type' => 'payout_approved',
+        'payout_request_id' => $payout->id,
+        'amount' => 250,
+        'currency' => 'USD',
+        'direction' => 'debit',
+        'status' => 'approved',
+    ]);
 
     $this->actingAs($admin)
         ->patch(route('admin.payouts.update', $payout), [
@@ -1071,6 +1129,16 @@ test('provider can request payout and admin can mark it paid', function () {
         'user_id' => $provider->id,
         'type' => 'provider_payout_paid',
         'body' => 'Your USD 250 payout request is now paid. Settlement reference: ECO-PAYOUT-7788.',
+    ]);
+
+    $this->assertDatabaseHas('financial_audit_logs', [
+        'event_type' => 'payout_paid',
+        'payout_request_id' => $payout->id,
+        'amount' => 250,
+        'currency' => 'USD',
+        'direction' => 'debit',
+        'reference' => 'ECO-PAYOUT-7788',
+        'status' => 'paid',
     ]);
 });
 
@@ -1120,6 +1188,15 @@ test('admin can reject and refund a payout request', function () {
         'direction' => 'credit',
         'amount' => 175,
     ]);
+
+    $this->assertDatabaseHas('financial_audit_logs', [
+        'event_type' => 'payout_rejected',
+        'payout_request_id' => $payout->id,
+        'amount' => 175,
+        'currency' => 'USD',
+        'direction' => 'debit',
+        'status' => 'rejected',
+    ]);
 });
 
 test('customer can keep separate usd and zig wallet balances', function () {
@@ -1163,6 +1240,26 @@ test('customer can keep separate usd and zig wallet balances', function () {
         ->and($usdWallet?->balance ?? 0)->toBe(0)
         ->and($payment->currency)->toBe('ZWG')
         ->and($payment->status)->toBe('confirmed');
+});
+
+test('financial audit logs are append only', function () {
+    $log = FinancialAuditLog::query()->create([
+        'event_type' => 'test_ledger_event',
+        'amount' => 10,
+        'currency' => 'USD',
+        'direction' => 'credit',
+        'reference' => 'TEST-LEDGER-001',
+        'status' => 'completed',
+        'metadata' => ['source' => 'test'],
+        'checksum' => 'fixed-test-checksum',
+        'recorded_at' => now(),
+    ]);
+
+    expect(fn () => $log->update(['status' => 'changed']))
+        ->toThrow(RuntimeException::class);
+
+    expect(fn () => $log->delete())
+        ->toThrow(RuntimeException::class);
 });
 
 test('customer can save a tokenized visa card and pay with it', function () {

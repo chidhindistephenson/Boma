@@ -9,13 +9,17 @@ use RuntimeException;
 
 class PaymentEscrowService
 {
-    public function __construct(private WalletService $wallets)
-    {
+    public function __construct(
+        private WalletService $wallets,
+        private FinancialAuditService $audit,
+        private PaymentReceiptService $receipts,
+    ) {
     }
 
     public function hold(JobRequestPayment $payment): JobRequestPayment
     {
         $payment->loadMissing('jobRequest.schedule');
+        $alreadyHeld = $payment->status === 'confirmed' && $payment->escrow_status === 'held';
         [$platformFee, $providerNet] = $this->feeAmounts($payment);
 
         $payment->update([
@@ -29,11 +33,19 @@ class PaymentEscrowService
             'provider_net_amount' => $providerNet,
         ]);
 
-        return $payment->refresh();
+        $payment = $payment->refresh();
+        if (! $alreadyHeld) {
+            $this->audit->recordPayment($payment, 'payment_held');
+            $this->receipts->send($payment, 'confirmed');
+        }
+
+        return $payment;
     }
 
     public function markExternal(JobRequestPayment $payment): JobRequestPayment
     {
+        $alreadyConfirmedExternal = $payment->status === 'confirmed' && $payment->escrow_status === 'external';
+
         $payment->update([
             'escrow_status' => 'external',
             'escrow_held_at' => null,
@@ -43,7 +55,13 @@ class PaymentEscrowService
             'release_reason' => null,
         ]);
 
-        return $payment->refresh();
+        $payment = $payment->refresh();
+        if (! $alreadyConfirmedExternal) {
+            $this->audit->recordPayment($payment, 'payment_confirmed_external');
+            $this->receipts->send($payment, 'confirmed');
+        }
+
+        return $payment;
     }
 
     public function release(
@@ -85,7 +103,14 @@ class PaymentEscrowService
                 ?? $payment->provider_wallet_transaction_id,
         ]);
 
-        return $payment->refresh();
+        $payment = $payment->refresh();
+        $this->audit->recordPayment($payment, 'payment_released', [
+            'release_reason' => $reason,
+            'released_by_user_id' => $releasedBy?->id,
+        ]);
+        $this->receipts->send($payment, 'released');
+
+        return $payment;
     }
 
     public function dispute(
@@ -148,7 +173,14 @@ class PaymentEscrowService
                 ?? $payment->customer_wallet_transaction_id,
         ]);
 
-        return $payment->refresh();
+        $payment = $payment->refresh();
+        $this->audit->recordPayment($payment, 'payment_refunded', [
+            'refund_reason' => $reason,
+            'refunded_by_user_id' => $refundedBy->id,
+        ]);
+        $this->receipts->send($payment, 'refunded');
+
+        return $payment;
     }
 
     public function releaseDueAt(JobRequestPayment $payment): Carbon

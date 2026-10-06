@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Services\AccountDeletionService;
 use App\Services\SubscriptionService;
 use App\Services\SystemSettingsService;
 use App\Services\WalletService;
@@ -12,7 +13,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -350,21 +350,16 @@ class ProfileController extends Controller
     /**
      * Delete the user's account.
      */
-    public function destroy(Request $request): RedirectResponse
+    public function destroy(Request $request, AccountDeletionService $accounts): RedirectResponse
     {
         $request->validate([
             'password' => ['required', 'current_password'],
         ]);
 
         $user = $request->user();
-        $photoPath = $user->profile_photo_path;
 
         Auth::logout();
-        $user->delete();
-
-        if ($photoPath) {
-            Storage::disk('local')->delete($photoPath);
-        }
+        $accounts->anonymize($user, $user, 'user_requested');
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();

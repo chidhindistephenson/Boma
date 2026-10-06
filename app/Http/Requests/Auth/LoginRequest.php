@@ -50,11 +50,15 @@ class LoginRequest extends FormRequest
             ]);
         }
 
-        if ($this->user()?->isSuspended()) {
+        if ($this->user()?->isSuspended() || $this->user()?->isDeletedAccount()) {
+            $message = $this->user()?->isDeletedAccount()
+                ? 'This account has been deleted and can no longer be used.'
+                : 'This account has been suspended. Contact platform support if you think this is a mistake.';
+
             Auth::guard('web')->logout();
 
             throw ValidationException::withMessages([
-                'email' => 'This account has been suspended. Contact platform support if you think this is a mistake.',
+                'email' => $message,
             ]);
         }
 

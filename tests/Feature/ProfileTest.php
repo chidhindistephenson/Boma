@@ -320,7 +320,13 @@ test('user can delete their account', function () {
         ->assertRedirect('/');
 
     $this->assertGuest();
-    $this->assertNull($user->fresh());
+    $user->refresh();
+    expect($user->status)->toBe('deleted')
+        ->and($user->anonymized_at)->not->toBeNull()
+        ->and($user->retention_until)->not->toBeNull()
+        ->and($user->email)->toBe("deleted-user-{$user->id}@anonymous.boma.local")
+        ->and($user->phone)->toBe('0000000000')
+        ->and($user->profile_photo_path)->toBeNull();
     Storage::disk('local')->assertMissing($photoPath);
 });
 
@@ -355,4 +361,22 @@ test('correct password must be provided to delete account', function () {
         ->assertRedirect('/profile');
 
     $this->assertNotNull($user->fresh());
+    expect($user->fresh()->status)->not->toBe('deleted');
+});
+
+test('account retention command anonymizes due deletion requests', function () {
+    $user = User::factory()->create([
+        'deletion_requested_at' => now()->subDay(),
+    ]);
+
+    $this->artisan('accounts:enforce-retention')
+        ->expectsOutput('Account retention processed. Anonymized: 1.')
+        ->assertExitCode(0);
+
+    $user->refresh();
+
+    expect($user->status)->toBe('deleted')
+        ->and($user->anonymized_at)->not->toBeNull()
+        ->and($user->deletion_reason)->toBe('retention_policy')
+        ->and($user->email)->toBe("deleted-user-{$user->id}@anonymous.boma.local");
 });

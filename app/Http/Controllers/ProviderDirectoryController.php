@@ -30,7 +30,10 @@ class ProviderDirectoryController extends Controller
             'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180', 'required_with:latitude'],
             'radius' => ['nullable', 'integer', 'min:1', 'max:250'],
-            'sort' => ['nullable', 'string', Rule::in(['newest', 'distance', 'rating'])],
+            'min_rating' => ['nullable', 'numeric', 'min:1', 'max:5'],
+            'price_min' => ['nullable', 'integer', 'min:0', 'max:100000000'],
+            'price_max' => ['nullable', 'integer', 'min:0', 'max:100000000', 'gte:price_min'],
+            'sort' => ['nullable', 'string', Rule::in(['newest', 'recently_active', 'distance', 'rating'])],
         ]);
 
         $latitude = $request->filled('latitude') ? $request->float('latitude') : null;
@@ -47,6 +50,9 @@ class ProviderDirectoryController extends Controller
             'latitude' => $latitude,
             'longitude' => $longitude,
             'radius' => $request->integer('radius', $settings->defaultSearchRadiusKm()),
+            'min_rating' => $request->filled('min_rating') ? $request->float('min_rating') : null,
+            'price_min' => $request->filled('price_min') ? $request->integer('price_min') : null,
+            'price_max' => $request->filled('price_max') ? $request->integer('price_max') : null,
             'sort' => $requestedSort === 'distance' && ! $hasSearchLocation
                 ? 'newest'
                 : $requestedSort,
@@ -86,6 +92,19 @@ class ProviderDirectoryController extends Controller
             ->when($filters['availability'] !== 'any', function (Builder $query) use ($filters): void {
                 $query->whereHas('providerProfile', function (Builder $providerQuery) use ($filters): void {
                     $providerQuery->where('availability_status', $filters['availability']);
+                });
+            })
+            ->when($filters['price_min'] !== null || $filters['price_max'] !== null, function (Builder $query) use ($filters): void {
+                $query->whereHas('providerProfile', function (Builder $providerQuery) use ($filters): void {
+                    $providerQuery->whereNotNull('base_price_from');
+
+                    if ($filters['price_min'] !== null) {
+                        $providerQuery->where('base_price_from', '>=', $filters['price_min']);
+                    }
+
+                    if ($filters['price_max'] !== null) {
+                        $providerQuery->where('base_price_from', '<=', $filters['price_max']);
+                    }
                 });
             })
             ->when($filters['q'] !== '', function (Builder $query) use ($filters): void {
@@ -141,11 +160,20 @@ class ProviderDirectoryController extends Controller
             ->withCount('receivedProviderReviews')
             ->withAvg('receivedProviderReviews as average_rating', 'rating');
 
+        if ($filters['min_rating'] !== null) {
+            $directoryQuery->whereHas('receivedProviderReviews', function (Builder $reviewQuery) use ($filters): void {
+                $reviewQuery->where('rating', '>=', $filters['min_rating']);
+            });
+        }
+
         match ($filters['sort']) {
             'distance' => $directoryQuery->orderBy('distance_km')->orderBy('users.name'),
             'rating' => $directoryQuery
                 ->orderByDesc('average_rating')
                 ->orderByDesc('received_provider_reviews_count')
+                ->orderBy('users.name'),
+            'recently_active' => $directoryQuery
+                ->orderByDesc('users.updated_at')
                 ->orderBy('users.name'),
             default => $directoryQuery->latest('users.created_at'),
         };

@@ -50,6 +50,32 @@ test('user can login refresh and access api with jwt', function () {
         ->assertOk();
 });
 
+test('versioned api auth routes expose the jwt workflow', function () {
+    $user = User::factory()->create([
+        'status' => 'active',
+        'password' => Hash::make('SecurePass1!'),
+    ]);
+
+    $login = $this->postJson('/api/v1/auth/login', [
+        'email' => $user->email,
+        'password' => 'SecurePass1!',
+        'device_name' => 'Mobile app',
+    ])->assertOk();
+
+    $this->withToken($login->json('access_token'))
+        ->getJson('/api/v1/auth/me')
+        ->assertOk()
+        ->assertJsonPath('user.id', $user->id);
+
+    $refresh = $this->postJson('/api/v1/auth/refresh', [
+        'refresh_token' => $login->json('refresh_token'),
+    ])->assertOk();
+
+    $this->postJson('/api/v1/auth/logout', [
+        'refresh_token' => $refresh->json('refresh_token'),
+    ])->assertOk();
+});
+
 test('logout revokes api refresh token', function () {
     $user = User::factory()->create([
         'status' => 'active',

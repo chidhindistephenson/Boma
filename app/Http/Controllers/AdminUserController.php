@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\AccountDeletionService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -182,14 +183,14 @@ class AdminUserController extends Controller
         return Redirect::back();
     }
 
-    public function destroy(Request $request, User $user): RedirectResponse
+    public function destroy(Request $request, User $user, AccountDeletionService $accounts): RedirectResponse
     {
         $admin = $request->user();
 
         abort_unless($admin->isAdmin(), 403);
         abort_if($user->isAdmin() || $user->id === $admin->id, 403);
 
-        $user->delete();
+        $accounts->anonymize($user, $admin, 'admin_requested');
 
         return Redirect::route('admin.users.index');
     }

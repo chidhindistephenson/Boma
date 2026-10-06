@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\InAppNotification;
 use App\Models\PayoutRequest;
+use App\Services\FinancialAuditService;
 use App\Services\WalletService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -59,6 +60,7 @@ class AdminPayoutController extends Controller
         Request $request,
         PayoutRequest $payout,
         WalletService $wallets,
+        FinancialAuditService $audit,
     ): RedirectResponse {
         $admin = $request->user();
 
@@ -106,6 +108,13 @@ class AdminPayoutController extends Controller
                 'refund_wallet_transaction_id' => $refund?->id
                     ?? $payout->refund_wallet_transaction_id,
             ]);
+
+            $audit->recordPayout($payout->refresh(), 'payout_rejected', [
+                'reviewed_by_user_id' => $admin->id,
+                'refund_wallet_transaction_id' => $refund?->id
+                    ?? $payout->refund_wallet_transaction_id,
+                'review_notes' => $validated['review_notes'],
+            ]);
         } elseif ($action === 'mark_paid') {
             $payout->update([
                 'status' => 'paid',
@@ -116,11 +125,21 @@ class AdminPayoutController extends Controller
                 'settlement_reference' => $validated['settlement_reference'],
                 'settlement_notes' => ($validated['settlement_notes'] ?? null) ?: null,
             ]);
+
+            $audit->recordPayout($payout->refresh(), 'payout_paid', [
+                'reviewed_by_user_id' => $admin->id,
+                'settlement_notes' => ($validated['settlement_notes'] ?? null) ?: null,
+            ]);
         } else {
             $payout->update([
                 'status' => 'approved',
                 'reviewed_by_user_id' => $admin->id,
                 'reviewed_at' => now(),
+                'review_notes' => ($validated['review_notes'] ?? null) ?: null,
+            ]);
+
+            $audit->recordPayout($payout->refresh(), 'payout_approved', [
+                'reviewed_by_user_id' => $admin->id,
                 'review_notes' => ($validated['review_notes'] ?? null) ?: null,
             ]);
         }

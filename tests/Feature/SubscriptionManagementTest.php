@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\ProviderSubscription;
+use App\Models\InAppNotification;
 use App\Models\SubscriptionPlan;
 use App\Models\SystemSetting;
 use App\Models\User;
@@ -125,4 +126,113 @@ test('admin can send a managed user password reset link', function () {
         ->assertRedirect();
 
     Notification::assertSentTo($customer, ResetPassword::class);
+});
+
+test('subscription processor sends renewal reminders once per period', function () {
+    Notification::fake();
+
+    $provider = User::factory()->provider()->create(['status' => 'active']);
+    $plan = SubscriptionPlan::query()->where('code', 'standard')->firstOrFail();
+    $subscription = $provider->providerProfile->subscriptions()->create([
+        'subscription_plan_id' => $plan->id,
+        'status' => 'active',
+        'amount' => $plan->price,
+        'currency' => $plan->currency,
+        'starts_at' => now()->subMonth(),
+        'current_period_ends_at' => now()->addDays(2),
+        'auto_renews' => true,
+    ]);
+
+    $this->artisan('subscriptions:process-renewals')
+        ->expectsOutput('Subscription renewals processed. Reminded: 1; Renewed: 0; Past due: 0; Cancelled: 0.')
+        ->assertExitCode(0);
+
+    expect(InAppNotification::query()->where('type', 'subscription_renewal_reminder')->count())->toBe(1)
+        ->and($subscription->fresh()->metadata['renewal_reminded_for'])->toBe(
+            $subscription->current_period_ends_at->toDateString(),
+        );
+
+    $this->artisan('subscriptions:process-renewals')
+        ->expectsOutput('Subscription renewals processed. Reminded: 0; Renewed: 0; Past due: 0; Cancelled: 0.')
+        ->assertExitCode(0);
+});
+
+test('subscription processor renews due plans from wallet balance', function () {
+    Notification::fake();
+
+    $provider = User::factory()->provider()->create(['status' => 'active']);
+    $plan = SubscriptionPlan::query()->where('code', 'standard')->firstOrFail();
+    app(WalletService::class)->credit($provider, 20, 'test_credit', 'Test funds', [], 'USD');
+
+    $subscription = $provider->providerProfile->subscriptions()->create([
+        'subscription_plan_id' => $plan->id,
+        'status' => 'active',
+        'amount' => $plan->price,
+        'currency' => $plan->currency,
+        'starts_at' => now()->subMonth(),
+        'current_period_ends_at' => now()->subMinute(),
+        'auto_renews' => true,
+    ]);
+
+    $this->artisan('subscriptions:process-renewals')
+        ->expectsOutput('Subscription renewals processed. Reminded: 0; Renewed: 1; Past due: 0; Cancelled: 0.')
+        ->assertExitCode(0);
+
+    $subscription->refresh();
+
+    expect($subscription->status)->toBe('active')
+        ->and($subscription->current_period_ends_at->isFuture())->toBeTrue()
+        ->and($subscription->wallet_transaction_id)->not->toBeNull()
+        ->and($provider->wallets()->where('currency', 'USD')->first()->balance)->toBe(5);
+
+    $this->assertDatabaseHas('in_app_notifications', [
+        'user_id' => $provider->id,
+        'type' => 'subscription_renewed',
+    ]);
+});
+
+test('subscription processor marks failed renewals past due and cancels after grace', function () {
+    Notification::fake();
+
+    $provider = User::factory()->provider()->create(['status' => 'active']);
+    $plan = SubscriptionPlan::query()->where('code', 'pro')->firstOrFail();
+    $provider->providerProfile->update(['subscription_tier' => 'pro']);
+
+    $subscription = $provider->providerProfile->subscriptions()->create([
+        'subscription_plan_id' => $plan->id,
+        'status' => 'active',
+        'amount' => $plan->price,
+        'currency' => $plan->currency,
+        'starts_at' => now()->subMonth(),
+        'current_period_ends_at' => now()->subMinute(),
+        'auto_renews' => true,
+    ]);
+
+    $this->artisan('subscriptions:process-renewals')
+        ->expectsOutput('Subscription renewals processed. Reminded: 0; Renewed: 0; Past due: 1; Cancelled: 0.')
+        ->assertExitCode(0);
+
+    $subscription->refresh();
+
+    expect($subscription->status)->toBe('past_due')
+        ->and($subscription->grace_ends_at->isFuture())->toBeTrue()
+        ->and($provider->providerProfile->fresh()->subscription_tier)->toBe('pro');
+
+    $subscription->forceFill(['grace_ends_at' => now()->subMinute()])->save();
+
+    $this->artisan('subscriptions:process-renewals')
+        ->expectsOutput('Subscription renewals processed. Reminded: 0; Renewed: 0; Past due: 0; Cancelled: 1.')
+        ->assertExitCode(0);
+
+    expect($subscription->fresh()->status)->toBe('cancelled')
+        ->and($provider->providerProfile->fresh()->subscription_tier)->toBe('basic_trial');
+
+    $this->assertDatabaseHas('in_app_notifications', [
+        'user_id' => $provider->id,
+        'type' => 'subscription_payment_failed',
+    ]);
+    $this->assertDatabaseHas('in_app_notifications', [
+        'user_id' => $provider->id,
+        'type' => 'subscription_cancelled',
+    ]);
 });

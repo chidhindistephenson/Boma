@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\InAppNotification;
 use App\Models\PayoutRequest;
 use App\Models\User;
+use App\Services\FinancialAuditService;
 use App\Services\WalletService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,8 +17,11 @@ use RuntimeException;
 
 class PayoutRequestController extends Controller
 {
-    public function store(Request $request, WalletService $wallets): RedirectResponse
-    {
+    public function store(
+        Request $request,
+        WalletService $wallets,
+        FinancialAuditService $audit,
+    ): RedirectResponse {
         $provider = $request->user();
 
         abort_unless($provider->isProvider(), 403);
@@ -31,7 +35,7 @@ class PayoutRequestController extends Controller
             'notes' => ['nullable', 'string', 'max:1200'],
         ]);
 
-        $payout = DB::transaction(function () use ($provider, $validated, $wallets): PayoutRequest {
+        $payout = DB::transaction(function () use ($provider, $validated, $wallets, $audit): PayoutRequest {
             try {
                 $debit = $wallets->debit(
                     $provider,
@@ -67,6 +71,10 @@ class PayoutRequestController extends Controller
                     ...($debit->metadata ?? []),
                     'payout_request_id' => $payout->id,
                 ],
+            ]);
+
+            $audit->recordPayout($payout->refresh(), 'payout_requested', [
+                'wallet_debit_transaction_id' => $debit->id,
             ]);
 
             return $payout;

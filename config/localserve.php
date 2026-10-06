@@ -67,6 +67,10 @@ return [
         ],
     ],
 
+    'privacy' => [
+        'deleted_account_retention_days' => (int) env('BOMA_DELETED_ACCOUNT_RETENTION_DAYS', 2555),
+    ],
+
     'payment' => [
         'driver' => env('BOMA_PAYMENT_DRIVER', 'sandbox'),
         'gateway_provider' => env('BOMA_PAYMENT_GATEWAY_PROVIDER', 'Boma Sandbox Pay'),
@@ -164,6 +168,12 @@ return [
             'Insurance certificate',
             'Portfolio sample',
         ],
+    ],
+
+    'subscriptions' => [
+        'renewal_reminder_days' => (int) env('BOMA_SUBSCRIPTION_RENEWAL_REMINDER_DAYS', 3),
+        'grace_days' => (int) env('BOMA_SUBSCRIPTION_GRACE_DAYS', 7),
+        'fallback_plan' => env('BOMA_SUBSCRIPTION_FALLBACK_PLAN', 'basic_trial'),
     ],
 
     'trade_categories' => [

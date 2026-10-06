@@ -1,0 +1,177 @@
+openapi: 3.0.3
+info:
+  title: Boma API
+  version: 1.0.0
+  description: Versioned REST API for Boma mobile and external clients.
+servers:
+  - url: /api/v1
+    description: Current version
+security:
+  - bearerAuth: []
+paths:
+  /auth/login:
+    post:
+      summary: Login and issue JWT access and refresh tokens.
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokenResponse'
+        '422':
+          description: Invalid credentials or inactive account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+  /auth/refresh:
+    post:
+      summary: Rotate a refresh token and issue a new access token.
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: Token rotated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokenResponse'
+        '422':
+          description: Refresh token is invalid, expired, or revoked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+  /auth/logout:
+    post:
+      summary: Revoke a refresh token.
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: Refresh token revoked.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Logged out.
+  /auth/me:
+    get:
+      summary: Return the authenticated API user.
+      tags: [Authentication]
+      responses:
+        '200':
+          description: Current user.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Missing or invalid bearer token.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: customer@boma.test
+        password:
+          type: string
+          format: password
+          example: SecurePass1!
+        device_name:
+          type: string
+          nullable: true
+          example: Mobile app
+    AuthTokenResponse:
+      type: object
+      required: [access_token, refresh_token, token_type, expires_in, refresh_expires_at, user]
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: integer
+          example: 900
+        refresh_expires_at:
+          type: string
+          format: date-time
+        user:
+          $ref: '#/components/schemas/User'
+    User:
+      type: object
+      required: [id, name, email, role, status]
+      properties:
+        id:
+          type: integer
+          example: 12
+        name:
+          type: string
+          example: Boma Customer
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [customer, provider, admin]
+        status:
+          type: string
+          example: active
+    ValidationError:
+      type: object
+      properties:
+        message:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string

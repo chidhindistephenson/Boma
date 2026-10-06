@@ -133,7 +133,12 @@ test('admin can edit and delete a customer account', function () {
         ->delete(route('admin.users.destroy', $customer))
         ->assertRedirect(route('admin.users.index', absolute: false));
 
-    expect(User::query()->whereKey($customer->id)->exists())->toBeFalse();
+    $customer->refresh();
+
+    expect($customer->status)->toBe('deleted')
+        ->and($customer->anonymized_at)->not->toBeNull()
+        ->and($customer->deletion_reason)->toBe('admin_requested')
+        ->and($customer->email)->toBe("deleted-user-{$customer->id}@anonymous.boma.local");
 });
 
 test('admin cannot suspend another admin account', function () {

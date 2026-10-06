@@ -16,6 +16,7 @@ use App\Http\Controllers\AdminWalletDepositController;
 use App\Http\Controllers\ConversationReportController;
 use App\Http\Controllers\CustomerShortlistController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\HealthCheckController;
 use App\Http\Controllers\InboxController;
 use App\Http\Controllers\InboxMessageController;
 use App\Http\Controllers\InboxReadController;
@@ -70,6 +71,10 @@ Route::get('/', function () {
         'laravelVersion' => Application::VERSION,
     ]);
 })->name('welcome');
+
+Route::get('/health', HealthCheckController::class)->name('health');
+Route::get('/openapi.yaml', fn () => response()->file(public_path('openapi.yaml')))
+    ->name('openapi');
 
 Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', 'verified'])

@@ -12,6 +12,8 @@ use RuntimeException;
 
 class WalletService
 {
+    public function __construct(private readonly FinancialAuditService $audit) {}
+
     public function walletFor(User $user, ?string $currency = null): UserWallet
     {
         $currency = $this->normalizeCurrency($currency);
@@ -48,7 +50,7 @@ class WalletService
             $wallet->increment('balance', $amount);
             $wallet->refresh();
 
-            return $wallet->transactions()->create([
+            $transaction = $wallet->transactions()->create([
                 'user_id' => $user->id,
                 'job_request_id' => $metadata['job_request_id'] ?? null,
                 'job_request_payment_id' => $metadata['job_request_payment_id'] ?? null,
@@ -62,6 +64,10 @@ class WalletService
                 'description' => $description,
                 'metadata' => $metadata,
             ]);
+
+            $this->audit->recordWalletTransaction($transaction, 'wallet_credit');
+
+            return $transaction;
         });
     }
 
@@ -83,7 +89,7 @@ class WalletService
             $wallet->decrement('balance', $amount);
             $wallet->refresh();
 
-            return $wallet->transactions()->create([
+            $transaction = $wallet->transactions()->create([
                 'user_id' => $user->id,
                 'job_request_id' => $metadata['job_request_id'] ?? null,
                 'job_request_payment_id' => $metadata['job_request_payment_id'] ?? null,
@@ -97,6 +103,10 @@ class WalletService
                 'description' => $description,
                 'metadata' => $metadata,
             ]);
+
+            $this->audit->recordWalletTransaction($transaction, 'wallet_debit');
+
+            return $transaction;
         });
     }
 

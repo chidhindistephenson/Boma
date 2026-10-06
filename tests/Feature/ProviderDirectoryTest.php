@@ -242,3 +242,84 @@ test('provider directory can sort located providers by rating', function () {
             ->where('providers.data.0.businessName', 'Higher Rated Wiring Co')
             ->where('providers.data.0.averageRating', 5));
 });
+
+test('provider directory filters by minimum rating and price range', function () {
+    $customer = User::factory()->create([
+        'city' => 'Harare',
+        'area' => 'Avondale',
+    ]);
+
+    $premiumProvider = createDirectoryProvider([
+        'name' => 'Premium Provider',
+    ], [
+        'business_name' => 'Premium Wiring Co',
+        'base_price_from' => 120,
+    ]);
+
+    $budgetProvider = createDirectoryProvider([
+        'name' => 'Budget Provider',
+    ], [
+        'business_name' => 'Budget Wiring Co',
+        'base_price_from' => 45,
+    ]);
+
+    foreach ([[$premiumProvider, 5], [$budgetProvider, 3]] as [$provider, $rating]) {
+        $jobRequest = JobRequest::create([
+            'customer_id' => $customer->id,
+            'provider_id' => $provider->id,
+            'trade_category' => 'Electrical',
+            'title' => "Directory filter request {$provider->id}",
+            'description' => 'Closed request used to seed provider filter ratings.',
+            'urgency' => 'this_week',
+            'city' => 'Harare',
+            'area' => 'Avondale',
+            'status' => 'closed',
+        ]);
+
+        $provider->receivedProviderReviews()->create([
+            'job_request_id' => $jobRequest->id,
+            'customer_id' => $customer->id,
+            'rating' => $rating,
+            'headline' => 'Verified feedback',
+            'body' => 'A public review used by provider directory filtering.',
+            'moderation_status' => 'published',
+        ]);
+    }
+
+    $this->get(route('providers.index', [
+        'min_rating' => 4,
+        'price_min' => 100,
+        'price_max' => 150,
+    ]))
+        ->assertOk()
+        ->assertSee('Premium Wiring Co')
+        ->assertDontSee('Budget Wiring Co')
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('filters.min_rating', 4)
+            ->where('filters.price_min', 100)
+            ->where('filters.price_max', 150)
+            ->where('providers.total', 1)
+            ->where('providers.data.0.basePriceFrom', 120));
+});
+
+test('provider directory can sort by most recently active', function () {
+    createDirectoryProvider([
+        'name' => 'Older Active Provider',
+        'updated_at' => now()->subDays(3),
+    ], [
+        'business_name' => 'Older Active Wiring Co',
+    ]);
+
+    createDirectoryProvider([
+        'name' => 'Fresh Active Provider',
+        'updated_at' => now(),
+    ], [
+        'business_name' => 'Fresh Active Wiring Co',
+    ]);
+
+    $this->get(route('providers.index', ['sort' => 'recently_active']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('filters.sort', 'recently_active')
+            ->where('providers.data.0.businessName', 'Fresh Active Wiring Co'));
+});

@@ -6,6 +6,7 @@ use App\Models\InAppNotification;
 use App\Models\JobRequest;
 use App\Models\UserPaymentMethod;
 use App\Services\PaymentEscrowService;
+use App\Services\FinancialAuditService;
 use App\Services\Payments\PesepayGateway;
 use App\Services\Payments\SandboxPaymentGateway;
 use App\Services\MalwareScanner;
@@ -30,6 +31,7 @@ class JobRequestPaymentController extends Controller
         WalletService $wallets,
         PesepayGateway $pesepayGateway,
         PaymentEscrowService $escrow,
+        FinancialAuditService $audit,
         MalwareScanner $scanner,
     ): Response {
         $viewer = $request->user();
@@ -208,6 +210,7 @@ class JobRequestPaymentController extends Controller
             $viewer,
             $wallets,
             $escrow,
+            $audit,
         ) {
             if ($submittedMethod === 'wallet') {
                 try {
@@ -273,6 +276,8 @@ class JobRequestPaymentController extends Controller
                 && filled($payment->gateway_provider)
             ) {
                 $payment = $escrow->hold($payment);
+            } elseif ($payment->status === 'submitted') {
+                $audit->recordPayment($payment, 'payment_recorded');
             }
 
             return $payment;
